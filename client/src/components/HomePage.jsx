@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Plus, Link as LinkIcon, Download, Leaf, Clock, Search, Trash2 } from 'lucide-react';
+import { Upload, Link as LinkIcon, Download, Leaf, Clock, Search, Trash2, HardDrive, Play } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { config } from '../config/environment';
 import torrentHistoryService from '../services/torrentHistoryService';
@@ -32,21 +32,16 @@ const HomePage = () => {
         },
         body: JSON.stringify(torrentData)
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         console.log('Torrent handled successfully:', data);
-        
-        // Check if this torrent already exists in our history
         const existingInHistory = torrentHistoryService.getTorrentByInfoHash(data.infoHash);
-        
+
         if (existingInHistory) {
-          console.log('📋 Torrent already exists in history, updating access time');
           torrentHistoryService.updateLastAccessed(data.infoHash);
         } else {
-          console.log('➕ Adding new torrent to history');
-          // Add to history
           torrentHistoryService.addTorrent({
             infoHash: data.infoHash,
             name: data.name || 'Unknown Torrent',
@@ -55,47 +50,38 @@ const HomePage = () => {
             size: data.size || 0
           });
         }
-        
-        // Reload history
+
         loadRecentTorrents();
-        
-        // Navigate to torrent page
         navigate(`/torrent/${data.infoHash}`);
       } else {
-        console.error('Failed to add torrent:', data);
         alert('Failed to add torrent: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error adding torrent:', error);
       alert('Error adding torrent: ' + error.message);
     } finally {
       setLoading(false);
     }
-  };  const addTorrentFile = async (file) => {
+  };
+
+  const addTorrentFile = async (file) => {
     const formData = new FormData();
     formData.append('torrentFile', file);
-    
+
     setLoading(true);
     try {
       const response = await fetch(config.getApiUrl('/api/torrents/upload'), {
         method: 'POST',
         body: formData
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
-        console.log('Torrent handled successfully:', data);
-        
-        // Check if this torrent already exists in our history
         const existingInHistory = torrentHistoryService.getTorrentByInfoHash(data.infoHash);
-        
+
         if (existingInHistory) {
-          console.log('📋 Torrent already exists in history, updating access time');
           torrentHistoryService.updateLastAccessed(data.infoHash);
         } else {
-          console.log('➕ Adding new torrent to history');
-          // Add to history
           torrentHistoryService.addTorrent({
             infoHash: data.infoHash,
             name: data.name || file.name.replace('.torrent', ''),
@@ -104,18 +90,13 @@ const HomePage = () => {
             size: data.size || 0
           });
         }
-        
-        // Reload history
+
         loadRecentTorrents();
-        
-        // Navigate to torrent page
         navigate(`/torrent/${data.infoHash}`);
       } else {
-        console.error('Failed to upload torrent:', data);
         alert('Failed to upload torrent: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error uploading torrent:', error);
       alert('Error uploading torrent: ' + error.message);
     } finally {
       setLoading(false);
@@ -144,196 +125,175 @@ const HomePage = () => {
 
   const removeTorrentFromHistory = (infoHash, e) => {
     e.stopPropagation();
-    if (window.confirm('Remove this torrent from history? (This won\'t delete the actual torrent data)')) {
+    if (window.confirm('Remove this torrent from history?')) {
       torrentHistoryService.removeTorrent(infoHash);
       loadRecentTorrents();
     }
   };
 
   const clearAllHistory = () => {
-    if (window.confirm('Clear all torrent history? (This won\'t delete actual torrent data)')) {
+    if (window.confirm('Clear all torrent history?')) {
       torrentHistoryService.clearHistory();
       loadRecentTorrents();
     }
   };
 
-  const filteredTorrents = searchQuery 
+  const filteredTorrents = searchQuery
     ? torrentHistoryService.searchTorrents(searchQuery)
     : recentTorrents;
 
   return (
-    <div className="home-page">
+    <div className="home-container">
+      {/* Hero Section */}
       <div className="hero-section">
-        <div className="hero-content">
-          <div className="brand">
-            <Leaf size={48} className="brand-icon" />
-            <div className="brand-text">
-              <h1>SeedBox Lite</h1>
-              <p>Stream torrents instantly • No seeding required</p>
-            </div>
+        <div className="hero-badge">Next-Gen Streaming</div>
+        <h1 className="hero-title">SeedBox <span>Lite</span></h1>
+        <p className="hero-subtitle">Stream torrents instantly with perfect state synchronization. No seeding required.</p>
+      </div>
+
+      {/* Main Input Action Area */}
+      <div className="action-glass-panel">
+        {/* TOP: Magnet/URL Input Form */}
+        <form onSubmit={handleUrlSubmit} className="magnet-form">
+          <div className="magnet-input-wrapper">
+            <Search size={20} className="input-icon" />
+            <input
+              type="text"
+              value={torrentUrl}
+              onChange={(e) => setTorrentUrl(e.target.value)}
+              placeholder="Magnet link or infohash..."
+              className="magnet-input"
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              className={`btn-primary ${loading ? 'syncing' : ''}`}
+              disabled={loading || !torrentUrl.trim()}
+            >
+              {loading ? (
+                <>
+                  <div className="spinner-ring" />
+                  <span className="desktop-only">Syncing...</span>
+                </>
+              ) : (
+                <span>Stream</span>
+              )}
+            </button>
           </div>
+        </form>
+
+        {/* MIDDLE: "OR" Divider */}
+        <div className="or-divider">
+          <span>OR</span>
+        </div>
+
+        {/* BOTTOM: Dashed File Drop Zone */}
+        <div className="file-upload-area">
+          <input
+            type="file"
+            accept=".torrent"
+            onChange={handleFileSelect}
+            id="torrent-upload"
+            disabled={loading}
+            className="hidden-file-input"
+          />
+          <label
+            htmlFor="torrent-upload"
+            className={`drop-zone ${loading ? 'disabled' : ''}`}
+          >
+            <div className="drop-zone-text">
+              <span className="highlight">Drop torrent file here</span> or click to browse
+            </div>
+            <div className="badge-limit">No size limit</div>
+          </label>
+        </div>
+
+        {/* Footer Links */}
+        <div className="panel-footer">
+          <Link to="/search" className="footer-link">
+            <Search size={16} /> Browse Custom Search Sources
+          </Link>
         </div>
       </div>
 
-      <div className="main-actions">
-        {/* URL Input Section */}
-        {/* URL Input Section */}
-        <div className="url-input-section">
-          <h2>Add Torrent or Magnet Link</h2>
-          <form onSubmit={handleUrlSubmit} className="url-form">
-            <div className="input-group">
-              <LinkIcon size={20} className="input-icon" />
-              <input
-                type="text"
-                value={torrentUrl}
-                onChange={(e) => setTorrentUrl(e.target.value)}
-                placeholder="Paste your torrent URL or magnet link here..."
-                className="url-input"
-                disabled={loading}
-              />
-              <button 
-                type="submit" 
-                className="add-button"
-                disabled={loading || !torrentUrl.trim()}
-              >
-                {loading ? (
-                  <div className="loading-spinner" />
-                ) : (
-                  <>
-                    <Download size={20} />
-                    Add Torrent
-                  </>
-                )}
-              </button>
-              
-              {/* Compact File Upload Button */}
-              <input
-                type="file"
-                accept=".torrent"
-                onChange={handleFileSelect}
-                style={{ display: 'none' }}
-                id="torrent-upload"
-                disabled={loading}
-              />
-              <label 
-                htmlFor="torrent-upload" 
-                className={`file-upload-button ${loading ? 'disabled' : ''}`}
-                title="Upload .torrent file"
-              >
-                {loading ? (
-                  <div className="loading-spinner" />
-                ) : (
-                  <>
-                    <Upload size={20} />
-                    Choose File
-                  </>
-                )}
-              </label>
-            </div>
-          </form>
-          
-          {/* Search Sources Link */}
-          <div className="search-sources-link">
-            <Link to="/search" className="search-link">
-              <Search size={18} /> Browse Custom Search Sources
-            </Link>
-          </div>
+      {/* Features Summary */}
+      <div className="features-grid">
+        <div className="feature-card">
+          <div className="feature-icon-box"><Upload size={20} /></div>
+          <span>Instant Streaming</span>
+        </div>
+        <div className="feature-card">
+          <div className="feature-icon-box"><HardDrive size={20} /></div>
+          <span>Progress Tracking</span>
+        </div>
+        <div className="feature-card">
+          <div className="feature-icon-box"><Clock size={20} /></div>
+          <span>Perfect Sync</span>
         </div>
       </div>
 
-      {/* Recent Torrents Section */}
+      {/* History Section */}
       {recentTorrents.length > 0 && (
         <div className="history-section">
-          <div className="section-header">
-            <h2>
-              <Clock size={24} />
-              Recent Torrents
-            </h2>
-            <div className="section-actions">
-              <button 
-                onClick={() => setShowHistory(!showHistory)} 
-                className="toggle-button"
-              >
-                {showHistory ? 'Show Less' : `Show All (${recentTorrents.length})`}
+          <div className="history-header">
+            <div className="history-title">
+              <Clock size={22} />
+              <h2>Recent Torrents</h2>
+            </div>
+            <div className="history-actions">
+              <button onClick={() => setShowHistory(!showHistory)} className="btn-secondary">
+                {showHistory ? 'Show Less' : `View All (${recentTorrents.length})`}
               </button>
               {showHistory && (
-                <button onClick={clearAllHistory} className="clear-button">
+                <button onClick={clearAllHistory} className="btn-danger">
                   <Trash2 size={16} />
-                  Clear History
+                  <span className="desktop-only">Clear</span>
                 </button>
               )}
             </div>
           </div>
 
           {showHistory && (
-            <div className="search-section">
-              <div className="search-input">
-                <Search size={16} />
-                <input
-                  type="text"
-                  placeholder="Search your torrents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
+            <div className="history-search">
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search history..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           )}
 
-          <div className="torrent-grid">
+          <div className="history-grid">
             {(showHistory ? filteredTorrents : recentTorrents.slice(0, 4)).map((torrent) => (
-              <div 
-                key={torrent.infoHash} 
-                className="torrent-card"
+              <div
+                key={torrent.infoHash}
+                className="history-card"
                 onClick={() => goToTorrent(torrent.infoHash)}
               >
-                <div className="torrent-info">
-                  <h3>{torrent.name}</h3>
-                  <div className="torrent-meta">
-                    <span className="source-tag">{torrent.source}</span>
-                    <span className="date">
-                      {new Date(torrent.addedAt).toLocaleDateString()}
-                    </span>
+                <div className="card-content">
+                  <h3 title={torrent.name}>{torrent.name}</h3>
+                  <p className="source-text" title={torrent.originalInput}>
+                    {torrent.originalInput}
+                  </p>
+                  <div className="card-footer">
+                    <span className={`tag ${torrent.source}`}>{torrent.source}</span>
+                    <span className="date">{new Date(torrent.addedAt).toLocaleDateString()}</span>
                   </div>
-                  <p className="torrent-source">{torrent.originalInput}</p>
                 </div>
                 <button
-                  className="remove-button"
+                  className="btn-remove"
                   onClick={(e) => removeTorrentFromHistory(torrent.infoHash, e)}
                   title="Remove from history"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             ))}
           </div>
-
-          {!showHistory && recentTorrents.length > 4 && (
-            <div className="view-all">
-              <button 
-                onClick={() => setShowHistory(true)} 
-                className="view-all-button"
-              >
-                View All {recentTorrents.length} Torrents
-              </button>
-            </div>
-          )}
         </div>
       )}
-
-      <div className="features-summary">
-        <div className="feature-item">
-          <span className="feature-icon">🚀</span>
-          <span>Instant streaming while downloading</span>
-        </div>
-        <div className="feature-item">
-          <span className="feature-icon">💾</span>
-          <span>Progress tracking & resume</span>
-        </div>
-        <div className="feature-item">
-          <span className="feature-icon">🎬</span>
-          <span>Built-in video player</span>
-        </div>
-      </div>
     </div>
   );
 };

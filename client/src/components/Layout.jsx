@@ -81,11 +81,11 @@ const Layout = () => {
       {/* Mobile Header */}
       <div className="mobile-header">
         <button onClick={toggleMobileMenu} className="mobile-menu-toggle">
-          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
         <div className="mobile-logo">
-          <Leaf size={24} />
-          <span>SeedBox Lite</span>
+          {/* <Leaf size={14} /> */}
+          <span>SeedBox</span>
         </div>
       </div>
 
@@ -93,8 +93,8 @@ const Layout = () => {
       <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo">
-            <Leaf size={sidebarCollapsed ? 28 : 32} />
-            {!sidebarCollapsed && <span>SeedBox Lite</span>}
+            <Leaf size={sidebarCollapsed ? 28 : 28} />
+            {!sidebarCollapsed && <span>SeedBox</span>}
           </div>
           {!sidebarCollapsed && (
             <button onClick={toggleSidebar} className="sidebar-toggle desktop-only">
@@ -107,7 +107,7 @@ const Layout = () => {
             </button>
           )}
         </div>
-        
+
         <nav className="sidebar-nav">
           {navigationItems.map(({ path, icon: IconComponent, label }) => {
             const Icon = IconComponent;
@@ -124,39 +124,45 @@ const Layout = () => {
             );
           })}
         </nav>
-        
+
         {!sidebarCollapsed && (
           <div className="cache-stats">
             <Link to="/cache" className="cache-link">
+
+              {/* Top Row: Icon, Title, and Percentage Badge */}
               <div className="cache-header">
-                <HardDrive size={16} />
-                <span>Cache</span>
+                <div className="cache-title">
+                  <HardDrive size={15} />
+                  <span>Cache</span>
+                </div>
+                <span className="cache-percent">
+                  {(cacheStats.cacheUsagePercentage || 0).toFixed(0)}%
+                </span>
               </div>
-              <div className="cache-info">
-                <div className="cache-stat">
-                  <span>Size: {cacheStats.totalSizeFormatted}</span>
-                </div>
-                <div className="cache-stat">
-                  <span>Torrents: {cacheStats.activeTorrents}</span>
-                </div>
-                <div className="disk-usage-mini">
-                  <div className="disk-bar-mini">
-                    <div 
-                      className="disk-fill-mini"
-                      style={{ width: `${cacheStats.cacheUsagePercentage || 0}%` }}
-                    />
-                  </div>
-                  <span>{(cacheStats.cacheUsagePercentage || 0).toFixed(1)}% of {cacheStats.totalDiskFormatted}</span>
-                </div>
+
+              {/* Middle: The sleek progress bar */}
+              <div className="disk-bar-mini">
+                <div
+                  className="disk-fill-mini"
+                  style={{ width: `${cacheStats.cacheUsagePercentage || 0}%` }}
+                />
               </div>
+
+              {/* Bottom Row: Minimal details */}
+              <div className="cache-details">
+                <span>{cacheStats.totalSizeFormatted} used</span>
+                <span>•</span>
+                <span>{cacheStats.activeTorrents} active</span>
+              </div>
+
             </Link>
           </div>
         )}
-        
+
         {!sidebarCollapsed && (
           <div className="sidebar-footer">
             <div className="app-info">
-              <p>SeedBox Lite v1.0</p>
+              <p>SeedBox</p>
               <p>Premium Streaming</p>
             </div>
           </div>
@@ -170,8 +176,8 @@ const Layout = () => {
 
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
-        <div 
-          className="mobile-overlay" 
+        <div
+          className="mobile-overlay"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}

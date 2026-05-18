@@ -173,10 +173,13 @@ const HomePage = () => {
               {loading ? (
                 <>
                   <div className="spinner-ring" />
-                  <span className="desktop-only">Syncing...</span>
+                  <span>Syncing...</span>
                 </>
               ) : (
-                <span>Stream</span>
+                <>
+                  Stream 
+                 <Play size={20} />
+                </>
               )}
             </button>
           </div>

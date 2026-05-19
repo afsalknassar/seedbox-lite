@@ -310,7 +310,7 @@ const TorrentPageNetflix = () => {
                     
                     <div className="netflix-episode-actions">
                       <button 
-                        className="netflix-action-icon"
+                       
                         onClick={(e) => handleDownload(e, file.index)}
                         title="Download"
                       >
@@ -337,7 +337,7 @@ const TorrentPageNetflix = () => {
                       <span className="netflix-file-size">{formatFileSize(file.size)}</span>
                     </div>
                     <button 
-                      className="netflix-action-icon"
+                    
                       onClick={(e) => handleDownload(e, file.index)}
                       title="Download"
                     >
@@ -352,7 +352,7 @@ const TorrentPageNetflix = () => {
 
         <div className="netflix-sidebar">
           <div className="netflix-info-card">
-            <h3>Torrent Status</h3>
+            <h3>Cache Status</h3>
             <div className="netflix-torrent-stats">
               <div className="netflix-stat">
                 <span>Total Size</span>

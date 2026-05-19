@@ -325,101 +325,16 @@ async function fetchIMDBData(torrentName) {
     
     console.log(`🔍 Likely series: ${isLikelySeries} | Target Year: ${year || 'Any'}`);
     const omdbKey = process.env.OMDB_API_KEY || 'trilogy';
-
-    // ==========================================
-    // STRATEGY 1: Iterative OMDb Waterfall
-    // ==========================================
-    console.log(`\n🔍 [Tier 1] Starting OMDb Iterative Search...`);
-    
-    // Dynamically build smart strategies for each candidate generated
-    const omdbUrls = [];
-    for (const titleVariant of candidates) {
-        if (!titleVariant || titleVariant.length < 2) continue;
-
-        if (isLikelySeries) {
-            if (year) omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}&y=${year}&type=series`);
-            omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}&type=series`);
-            omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&s=${encodeURIComponent(titleVariant)}&type=series`);
-        }
-        
-        if (year) omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}&y=${year}`);
-        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}`);
-        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&s=${encodeURIComponent(titleVariant)}&type=movie`);
-        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent('The ' + titleVariant)}`);
-    }
-
-    // Remove duplicates and nulls from the query array
-    const filteredOmdbUrls = [...new Set(omdbUrls)].filter(Boolean);
-
-    for (const url of filteredOmdbUrls) {
-        try {
-            console.log(`   ➔ Trying OMDb Endpoint: ${url}`);
-            // Assuming fetchWithTimeout is available globally as defined in your setup config
-            const data = await fetchWithTimeout(url, {}, 8000);
-            
-            if (data && data.Response === 'True') {
-                const movieData = data.Search ? data.Search[0] : data;
-                
-                if (movieData && movieData.Title) {
-                    console.log(`✅ Found OMDb Match: ${movieData.Title} (${movieData.Year})`);
-                    
-                    const result = {
-                        Title: movieData.Title,
-                        Year: movieData.Year,
-                        imdbRating: movieData.imdbRating,
-                        imdbVotes: movieData.imdbVotes,
-                        Plot: movieData.Plot,
-                        Director: movieData.Director,
-                        Actors: movieData.Actors,
-                        Poster: movieData.Poster !== 'N/A' ? movieData.Poster : null,
-                        Backdrop: null, 
-                        Genre: movieData.Genre,
-                        Runtime: movieData.Runtime,
-                        Rated: movieData.Rated,
-                        imdbID: movieData.imdbID,
-                        Type: movieData.Type || (isLikelySeries ? 'series' : 'movie'),
-                        source: 'omdb'
-                    };
-                    
-                    // Try to enhance OMDb metadata with a TMDB backdrop path
-                    try {
-                        const isSeriesType = result.Type === 'series';
-                        const tmdbSearchType = isSeriesType ? 'tv' : 'movie';
-                        const tmdbEnhanceUrl = `https://api.themoviedb.org/3/search/${tmdbSearchType}?api_key=3fd2be6f0c70a2a598f084ddfb75487d&query=${encodeURIComponent(result.Title)}`;
-                        
-                        const tmdbResponse = await fetchWithTimeout(tmdbEnhanceUrl, {
-                            headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
-                        }, 5000);
-                        
-                        if (tmdbResponse && tmdbResponse.results && tmdbResponse.results.length > 0) {
-                            const match = tmdbResponse.results[0];
-                            if (match.backdrop_path) {
-                                result.Backdrop = `https://image.tmdb.org/t/p/w1280${match.backdrop_path}`;
-                                console.log(`🎨 Enhanced with TMDB backdrop: ${result.Backdrop}`);
-                            }
-                        }
-                    } catch (enhanceError) {
-                        console.log(`⚠️ Backdrop enhancement skipped: ${enhanceError.message}`);
-                    }
-                    
-                    imdbCache.set(torrentName, result);
-                    return result;
-                }
-            }
-        } catch (error) {
-            console.log(`   ⚠️ OMDb loop item failed: ${error.message}`);
-        }
-    }
+    const tmdbKey = process.env.OMDB_API_KEY || '9cc4c06822e95c201ce0ff3a0fbb20f6';
 
     // ==========================================
     // STRATEGY 2: TMDB Fallback Waterfall
     // ==========================================
-    console.log(`\n🎭 [Tier 2] OMDb exhausted. Trying TMDB Fallbacks for: "${primaryTitle}"`);
     
     // 2A. Try TV Series Lookup if flagged likely series
     if (isLikelySeries) {
         try {
-            const tmdbTvUrl = `https://api.themoviedb.org/3/search/tv?api_key=3fd2be6f0c70a2a598f084ddfb75487d&query=${encodeURIComponent(primaryTitle)}${year ? `&first_air_date_year=${year}` : ''}`;
+            const tmdbTvUrl = `https://api.themoviedb.org/3/search/tv?api_key=${tmdbKey}&query=${encodeURIComponent(primaryTitle)}${year ? `&first_air_date_year=${year}` : ''}`;
             console.log(`🔍 Trying TMDB TV: ${tmdbTvUrl}`);
             
             const searchData = await fetchWithTimeout(tmdbTvUrl, {
@@ -428,7 +343,7 @@ async function fetchIMDBData(torrentName) {
             
             if (searchData && searchData.results && searchData.results.length > 0) {
                 const show = searchData.results[0];
-                const detailsUrl = `https://api.themoviedb.org/3/tv/${show.id}?api_key=3fd2be6f0c70a2a598f084ddfb75487d&append_to_response=credits`;
+                const detailsUrl = `https://api.themoviedb.org/3/tv/${show.id}?api_key=${tmdbKey}&append_to_response=credits`;
                 const details = await fetchWithTimeout(detailsUrl, {
                     headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
                 }, 10000);
@@ -463,7 +378,7 @@ async function fetchIMDBData(torrentName) {
     
     // 2B. Try TMDB Movie Lookup
     try {
-        const tmdbMovieUrl = `https://api.themoviedb.org/3/search/movie?api_key=3fd2be6f0c70a2a598f084ddfb75487d&query=${encodeURIComponent(primaryTitle)}${year ? `&year=${year}` : ''}`;
+        const tmdbMovieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${tmdbKey}&query=${encodeURIComponent(primaryTitle)}${year ? `&year=${year}` : ''}`;
         console.log(`🔍 Trying TMDB Movies: ${tmdbMovieUrl}`);
         
         const searchData = await fetchWithTimeout(tmdbMovieUrl, {
@@ -472,7 +387,7 @@ async function fetchIMDBData(torrentName) {
         
         if (searchData && searchData.results && searchData.results.length > 0) {
             const movie = searchData.results[0];
-            const detailsUrl = `https://api.themoviedb.org/3/movie/${movie.id}?api_key=3fd2be6f0c70a2a598f084ddfb75487d&append_to_response=credits`;
+            const detailsUrl = `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${tmdbKey}&append_to_response=credits`;
             const details = await fetchWithTimeout(detailsUrl, {
                 headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
             }, 10000);
@@ -503,7 +418,87 @@ async function fetchIMDBData(torrentName) {
     } catch (error) {
         console.log(`❌ TMDB Movie fallback failed: ${error.message}`);
     }
+
+    // ==========================================
+    // STRATEGY 2: Iterative OMDb Waterfall
+    // ==========================================
+    console.log(`\n🔍 [Tier 1] Starting OMDb Iterative Search...`);
     
+    // Dynamically build smart strategies for each candidate generated
+    const omdbUrls = [];
+  
+    
+
+    if (isLikelySeries) {
+        if (year) omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(primaryTitle)}&y=${year}&type=series`);
+        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(primaryTitle)}&type=series`);
+        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&s=${encodeURIComponent(primaryTitle)}&type=series`);
+    }
+    
+    if (year) omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(primaryTitle)}&y=${year}`);
+    omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(primaryTitle)}`);
+    omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&s=${encodeURIComponent(primaryTitle)}&type=movie`);
+    omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent('The ' + primaryTitle)}`);
+    
+
+    for (const url of omdbUrls) {
+        try {
+            const data = await fetchWithTimeout(url, {}, 8000);
+            
+            if (data && data.Response === 'True') {
+                const movieData = data.Search ? data.Search[0] : data;
+                
+                if (movieData && movieData.Title) {
+                    console.log(`✅ Found OMDb Match: ${movieData.Title} (${movieData.Year})`);
+                    
+                    const result = {
+                        Title: movieData.Title,
+                        Year: movieData.Year,
+                        imdbRating: movieData.imdbRating,
+                        imdbVotes: movieData.imdbVotes,
+                        Plot: movieData.Plot,
+                        Director: movieData.Director,
+                        Actors: movieData.Actors,
+                        Poster: movieData.Poster !== 'N/A' ? movieData.Poster : null,
+                        Backdrop: null, 
+                        Genre: movieData.Genre,
+                        Runtime: movieData.Runtime,
+                        Rated: movieData.Rated,
+                        imdbID: movieData.imdbID,
+                        Type: movieData.Type || (isLikelySeries ? 'series' : 'movie'),
+                        source: 'omdb'
+                    };
+                    
+                    // Try to enhance OMDb metadata with a TMDB backdrop path
+                    try {
+                        const isSeriesType = result.Type === 'series';
+                        const tmdbSearchType = isSeriesType ? 'tv' : 'movie';
+                        const tmdbEnhanceUrl = `https://api.themoviedb.org/3/search/${tmdbSearchType}?api_key=${tmdbKey}&query=${encodeURIComponent(result.Title)}`;
+                        
+                        const tmdbResponse = await fetchWithTimeout(tmdbEnhanceUrl, {
+                            headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
+                        }, 5000);
+                        
+                        if (tmdbResponse && tmdbResponse.results && tmdbResponse.results.length > 0) {
+                            const match = tmdbResponse.results[0];
+                            if (match.backdrop_path) {
+                                result.Backdrop = `https://image.tmdb.org/t/p/w1280${match.backdrop_path}`;
+                                console.log(`🎨 Enhanced with TMDB backdrop: ${result.Backdrop}`);
+                            }
+                        }
+                    } catch (enhanceError) {
+                        console.log(`⚠️ Backdrop enhancement skipped: ${enhanceError.message}`);
+                    }
+                    
+                    imdbCache.set(torrentName, result);
+                    return result;
+                }
+            }
+        } catch (error) {
+            console.log(`   ⚠️ OMDb loop item failed: ${error.message}`);
+        }
+    }
+
     // ==========================================
     // STRATEGY 3: Graceful Hard Fallback
     // ==========================================

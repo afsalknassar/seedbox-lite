@@ -21,7 +21,7 @@ const TorrentPageNetflix = () => {
     try {
       const response = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}/imdb`);
       const data = await response.json();
-      
+
       if (data.success && data.imdb) {
         setImdbData(data.imdb);
       } else {
@@ -36,18 +36,18 @@ const TorrentPageNetflix = () => {
   const fetchTorrentDetails = useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const response = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch torrent data`);
       }
-      
+
       const data = await response.json();
-      
+
       setTorrent(data.torrent);
       setFiles(data.files || []);
-      
+
     } catch (err) {
       console.error('Error fetching torrent details:', err);
       setError(err.message);
@@ -72,7 +72,7 @@ const TorrentPageNetflix = () => {
     if (torrentHash) {
       fetchTorrentDetails();
       fetchIMDBData();
-      
+
       const allProgress = progressService.getAllProgress();
       const torrentProgress = {};
       Object.values(allProgress).forEach(progress => {
@@ -81,13 +81,13 @@ const TorrentPageNetflix = () => {
         }
       });
       setRecentProgress(torrentProgress);
-      
+
       const progressInterval = setInterval(() => {
         if (!selectedVideo) {
           fetchTorrentProgress();
         }
       }, 2000);
-      
+
       return () => clearInterval(progressInterval);
     }
   }, [torrentHash, fetchTorrentDetails, fetchIMDBData, fetchTorrentProgress, selectedVideo]);
@@ -137,7 +137,7 @@ const TorrentPageNetflix = () => {
         <div className="netflix-error">
           <h2>Something went wrong</h2>
           <p>{error}</p>
-          <button 
+          <button
             className="netflix-retry-btn"
             onClick={() => {
               setError(null);
@@ -159,7 +159,7 @@ const TorrentPageNetflix = () => {
     const progressFromService = progressService.getProgress(torrentHash, selectedVideo.index);
     const directServiceTime = progressFromService?.currentTime || 0;
     const initialProgress = directServiceTime || progressFromState;
-    
+
     return (
       <div className="video-overlay">
         <VideoPlayer
@@ -167,7 +167,7 @@ const TorrentPageNetflix = () => {
           src={`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${selectedVideo.index}/stream`}
           title={selectedVideo.name}
           onClose={() => setSelectedVideo(null)}
-          onTimeUpdate={() => {}}
+          onTimeUpdate={() => { }}
           initialTime={initialProgress}
           torrentHash={torrentHash}
           fileIndex={selectedVideo.index}
@@ -176,23 +176,23 @@ const TorrentPageNetflix = () => {
     );
   }
 
-  const mainVideoFile = files.find(file => 
+  const mainVideoFile = files.find(file =>
     /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i.test(file.name)
   );
 
-  const videoFiles = files.filter(file => 
+  const videoFiles = files.filter(file =>
     /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i.test(file.name)
   );
 
-  const otherFiles = files.filter(file => 
+  const otherFiles = files.filter(file =>
     !/\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i.test(file.name)
   );
 
-  const heroBackground = imdbData?.Backdrop 
+  const heroBackground = imdbData?.Backdrop
     ? `url(${imdbData.Backdrop})`
-    : (imdbData?.Poster && imdbData.Poster !== 'N/A' 
-        ? `url(${imdbData.Poster})` 
-        : 'linear-gradient(135deg, #111 0%, #333 100%)');
+    : (imdbData?.Poster && imdbData.Poster !== 'N/A'
+      ? `url(${imdbData.Poster})`
+      : 'linear-gradient(135deg, #111 0%, #333 100%)');
 
   return (
     <div className="netflix-page">
@@ -207,7 +207,7 @@ const TorrentPageNetflix = () => {
             <h1 className="netflix-title">
               {imdbData?.Title || torrent?.name || 'Unknown Title'}
             </h1>
-            
+
             {imdbData && (
               <div className="netflix-meta">
                 {imdbData.Year && <span className="netflix-year">{imdbData.Year}</span>}
@@ -215,7 +215,7 @@ const TorrentPageNetflix = () => {
                 {imdbData.Runtime && <span className="netflix-runtime">{imdbData.Runtime}</span>}
                 {imdbData.Genre && <span className="netflix-genre">{imdbData.Genre}</span>}
                 {imdbData.imdbRating && (
-                  <span className="netflix-imdb"><Star size={14} fill="#f5c518" color="#f5c518" style={{display: 'inline', marginRight: '4px'}}/>{imdbData.imdbRating}</span>
+                  <span className="netflix-imdb"><Star size={14} fill="#f5c518" color="#f5c518" style={{ display: 'inline', marginRight: '4px' }} />{imdbData.imdbRating}</span>
                 )}
               </div>
             )}
@@ -226,7 +226,7 @@ const TorrentPageNetflix = () => {
 
             <div className="netflix-action-buttons">
               {mainVideoFile && (
-                <button 
+                <button
                   className="netflix-play-btn"
                   onClick={() => setSelectedVideo(mainVideoFile)}
                 >
@@ -234,8 +234,8 @@ const TorrentPageNetflix = () => {
                   <span>{recentProgress[mainVideoFile.index] ? 'Resume' : 'Play'}</span>
                 </button>
               )}
-              
-              <button 
+
+              <button
                 className="netflix-secondary-btn"
                 onClick={(e) => mainVideoFile ? handleDownload(e, mainVideoFile.index) : null}
               >
@@ -246,10 +246,10 @@ const TorrentPageNetflix = () => {
           </div>
 
           {imdbData?.Poster && imdbData.Poster !== 'N/A' && (
-            <img 
-              className="netflix-poster" 
-              src={imdbData.Poster} 
-              alt={imdbData.Title} 
+            <img
+              className="netflix-poster"
+              src={imdbData.Poster}
+              alt={imdbData.Title}
             />
           )}
         </div>
@@ -259,67 +259,73 @@ const TorrentPageNetflix = () => {
         <div className="netflix-main-content">
           <div className="netflix-section">
             <h2>Episodes</h2>
-            <div className="netflix-episodes">
-              {videoFiles.map((file, index) => {
-                const progress = recentProgress[file.index];
-                const progressPercentage = progress ? (progress.currentTime / progress.duration) * 100 : 0;
-                
-                return (
-                  <div 
-                    key={file.index} 
-                    className="netflix-episode"
-                    onClick={() => setSelectedVideo(file)}
-                  >
-                    <div className="netflix-episode-number">{index + 1}</div>
-                    
-                    <div className="netflix-episode-thumbnail">
-                      {imdbData?.Backdrop ? (
-                         <img src={imdbData.Backdrop} alt="Thumbnail" />
-                      ) : (
-                         <div style={{width:'100%', height:'100%', background:'#333'}}></div>
-                      )}
-                      <div className="netflix-episode-play">
-                        <div className="netflix-episode-play-icon">
-                          <Play size={20} fill="currentColor" strokeWidth={0} />
+            <div className="netflix-section">
+              <h2>Episodes</h2>
+              <div className="netflix-episodes">
+                {videoFiles.map((file, index) => {
+                  const progress = recentProgress[file.index];
+                  const progressPercentage = progress ? (progress.currentTime / progress.duration) * 100 : 0;
+
+                  return (
+                    <div
+                      key={file.index}
+                      className="netflix-episode"
+                      onClick={() => setSelectedVideo(file)}
+                    >
+                      <div className="netflix-episode-number">{index + 1}</div>
+
+                      <div className="netflix-episode-thumbnail">
+                        {imdbData?.Backdrop ? (
+                          <img src={imdbData.Backdrop} alt="Thumbnail" />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', background: '#333' }}></div>
+                        )}
+                        <div className="netflix-episode-play">
+                          <div className="netflix-episode-play-icon">
+                            <Play size={20} fill="currentColor" strokeWidth={0} />
+                          </div>
                         </div>
+                        {progress && (
+                          <div className="netflix-progress-bar">
+                            <div
+                              className="netflix-progress-fill"
+                              style={{ width: `${progressPercentage}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
-                      {progress && (
-                        <div className="netflix-progress-bar">
-                          <div 
-                            className="netflix-progress-fill"
-                            style={{ width: `${progressPercentage}%` }}
-                          />
+
+                      <div className="netflix-episode-info">
+                        <div className="netflix-episode-header">
+                          <h4>{file.name}</h4>
+                          <span className="netflix-episode-duration">
+                            {formatFileSize(file.size)}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="netflix-episode-info">
-                      <div className="netflix-episode-header">
-                        <h4>{file.name}</h4>
-                        <span className="netflix-episode-duration">
-                          {formatFileSize(file.size)}
-                        </span>
+                        <p className="netflix-episode-desc">
+                          {progress && progress.currentTime != null && progress.duration != null
+                            ? `Progress: ${progressService.formatTime(progress.currentTime)} / ${progressService.formatTime(progress.duration)}`
+                            : "Enjoy this episode."
+                          }
+                        </p>
                       </div>
-                      <p className="netflix-episode-desc">
-                        {progress && progress.currentTime != null && progress.duration != null 
-                          ? `Progress: ${progressService.formatTime(progress.currentTime)} / ${progressService.formatTime(progress.duration)}`
-                          : "Enjoy this episode."
-                        }
-                      </p>
+
+                      <div className="netflix-episode-actions">
+                        <button
+                          // className="netflix-action-icon"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevents clicking the button from also selecting the video
+                            handleDownload(e, file.index);
+                          }}
+                          title="Download"
+                        >
+                          <Download size={18} strokeWidth={2} color="#ffffff" />
+                        </button>
+                      </div>
                     </div>
-                    
-                    <div className="netflix-episode-actions">
-                      <button 
-                       
-                        onClick={(e) => handleDownload(e, file.index)}
-                        title="Download"
-                      >
-                        <Download size={18} strokeWidth={2} color="#ffffff" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -336,8 +342,8 @@ const TorrentPageNetflix = () => {
                       <span className="netflix-file-name" title={file.name}>{file.name}</span>
                       <span className="netflix-file-size">{formatFileSize(file.size)}</span>
                     </div>
-                    <button 
-                    
+                    <button
+
                       onClick={(e) => handleDownload(e, file.index)}
                       title="Download"
                     >

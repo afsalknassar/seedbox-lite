@@ -264,160 +264,6 @@
   overflow: hidden;
 }
 
-/* Modernize Episodes list */
-.netflix-episode {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 16px;
-  background: transparent;
-  border-bottom: 1px solid #333;
-  transition: background-color 0.2s;
-  cursor: pointer;
-}
-
-.netflix-episode:hover {
-  background: rgba(255,255,255,0.05);
-}
-
-.netflix-episode:last-child {
-  border-bottom: none;
-}
-
-.netflix-episode-number {
-  font-size: 1.5rem;
-  color: #808080;
-  font-weight: 300;
-  width: 30px;
-  text-align: center;
-}
-
-.netflix-episode-thumbnail {
-  position: relative;
-  width: 140px;
-  height: 80px;
-  border-radius: 4px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: #333;
-}
-
-.netflix-episode-thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.netflix-episode-play {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.4);
-  opacity: 0;
-  transition: opacity 0.2s;
-  color: white;
-}
-
-.netflix-episode:hover .netflix-episode-play {
-  opacity: 1;
-}
-
-.netflix-episode-play-icon {
-  width: 40px;
-  height: 40px;
-  border: 1px solid white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.5);
-  transition: transform 0.2s;
-}
-
-.netflix-episode-play-icon:hover {
-  transform: scale(1.1);
-  background: rgba(255,255,255,0.2);
-}
-
-.netflix-progress-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.netflix-progress-fill {
-  height: 100%;
-  background: #e50914;
-}
-
-.netflix-episode-info {
-  flex: 1;
-  min-width: 0;
-  padding-right: 12px;
-}
-
-.netflix-episode-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.netflix-episode-header h4 {
-  font-size: 1rem;
-  font-weight: bold;
-  color: #fff;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.netflix-episode-duration {
-  font-size: 0.9rem;
-  color: #d2d2d2;
-  flex-shrink: 0;
-}
-
-.netflix-episode-desc {
-  font-size: 0.9rem;
-  color: #d2d2d2;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.netflix-episode-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.netflix-action-icon {
-  background: transparent;
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.4);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.netflix-action-icon:hover {
-  border-color: white;
-  background: rgba(255,255,255,0.1);
-}
 
 /* Files List */
 .netflix-files {
@@ -687,4 +533,247 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* --- Existing CSS --- */
+.netflix-episodes {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.netflix-episode {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  background: transparent;
+  border-bottom: 1px solid #333;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.netflix-episode:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.netflix-episode:last-child {
+  border-bottom: none;
+}
+
+.netflix-episode-number {
+  font-size: 1.5rem;
+  color: #808080;
+  font-weight: 300;
+  width: 30px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.netflix-episode-thumbnail {
+  position: relative;
+  width: 140px;
+  height: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #333;
+}
+
+.netflix-episode-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.netflix-episode-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  transition: opacity 0.2s;
+  color: white;
+}
+
+.netflix-episode:hover .netflix-episode-play {
+  opacity: 1;
+}
+
+.netflix-episode-play-icon {
+  width: 40px;
+  height: 40px;
+  border: 1px solid white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  transition: transform 0.2s;
+}
+
+.netflix-episode-play-icon:hover {
+  transform: scale(1.1);
+  background: rgba(255,255,255,0.2);
+}
+
+.netflix-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.netflix-progress-fill {
+  height: 100%;
+  background: #e50914;
+}
+
+.netflix-episode-info {
+  flex: 1;
+  min-width: 0;
+  padding-right: 12px;
+}
+
+.netflix-episode-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 10px;
+}
+
+.netflix-episode-header h4 {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.netflix-episode-duration {
+  font-size: 0.9rem;
+  color: #d2d2d2;
+  flex-shrink: 0;
+}
+
+.netflix-episode-desc {
+  font-size: 0.9rem;
+  color: #d2d2d2;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.netflix-episode-actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.netflix-action-icon {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.4);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.netflix-action-icon:hover {
+  border-color: white;
+  background: rgba(255,255,255,0.1);
+}
+
+/* --- Responsive Media Queries --- */
+
+/* Tablet & Smaller Desktop */
+@media (max-width: 768px) {
+  .netflix-episode {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .netflix-episode-number {
+    font-size: 1.25rem;
+    width: 20px;
+  }
+  
+  .netflix-episode-thumbnail {
+    width: 112px;
+    height: 63px; /* maintains ~16:9 ratio */
+  }
+  
+  .netflix-episode-play-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .netflix-episode-header h4 {
+    font-size: 0.95rem;
+  }
+  
+  .netflix-episode-duration,
+  .netflix-episode-desc {
+    font-size: 0.85rem;
+  }
+  
+  .netflix-action-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Mobile Screens */
+@media (max-width: 480px) {
+  .netflix-episode {
+    padding: 10px 8px;
+    gap: 8px;
+  }
+  
+  .netflix-episode-number {
+    display: none; /* Hide number to maximize space for info */
+  }
+  
+  .netflix-episode-thumbnail {
+    width: 96px;
+    height: 54px; 
+  }
+  
+  .netflix-episode-info {
+    padding-right: 6px;
+  }
+  
+  .netflix-episode-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+  
+  .netflix-episode-desc {
+    display: none; /* Hide descriptions on very small screens to keep UI clean */
+  }
+  
+  .netflix-action-icon {
+    width: 32px;
+    height: 32px;
+  }
 }

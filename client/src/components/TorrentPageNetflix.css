@@ -2,8 +2,8 @@
 .netflix-page {
   width: 100vw;
   min-height: 100vh;
-  background: #141414;
-  color: #ffffff;
+  background: var(--bg-main);
+  color: var(--text-primary);
   font-family: 'Netflix Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
@@ -82,8 +82,8 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, #141414 0%, rgba(20,20,20,0.6) 30%, rgba(20,20,20,0) 100%),
-              linear-gradient(to right, #141414 0%, rgba(20,20,20,0.4) 50%, rgba(20,20,20,0) 100%);
+  background: linear-gradient(to top, #030712 0%, rgba(20,20,20,0.6) 30%, rgba(20,20,20,0) 100%),
+              linear-gradient(to right, #030712 0%, rgba(20,20,20,0.4) 50%, rgba(20,20,20,0) 100%);
   z-index: 1;
 }
 
@@ -328,7 +328,7 @@
 
 /* Sidebar Info Card */
 .netflix-info-card {
-  background: #181818;
+  background: #0a0f1a;
   border-radius: 4px;
   padding: 24px;
 }
@@ -417,7 +417,7 @@
   }
   
   .netflix-hero::before {
-    background: linear-gradient(to top, #141414 0%, rgba(20,20,20,0.8) 40%, rgba(20,20,20,0) 100%);
+    background: linear-gradient(to top, #030712 0%, rgba(20,20,20,0.8) 40%, rgba(20,20,20,0) 100%);
   }
   
   .netflix-hero-content {

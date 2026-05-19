@@ -211,12 +211,18 @@ const TorrentPageNetflix = () => {
             {imdbData && (
               <div className="netflix-meta">
                 {imdbData.Year && <span className="netflix-year">{imdbData.Year}</span>}
-                {imdbData.Rated && <span className="netflix-rating">{imdbData.Rated}</span>}
-                {imdbData.Runtime && <span className="netflix-runtime">{imdbData.Runtime}</span>}
                 {imdbData.Genre && <span className="netflix-genre">{imdbData.Genre}</span>}
+                {imdbData.Runtime && <span className="netflix-runtime">{imdbData.Runtime}</span>}
+
+              </div>
+            )}
+            {imdbData && (
+              <div className="netflix-meta">
+                {imdbData.Rated && <span className="netflix-rating">{imdbData.Rated}</span>}
                 {imdbData.imdbRating && (
-                  <span className="netflix-imdb"><Star size={14} fill="#f5c518" color="#f5c518" style={{ display: 'inline', marginRight: '4px' }} />{imdbData.imdbRating}</span>
+                  <span className="netflix-imdb" style={{ fontSize: '18px' }} ><Star size={18} fill="#f5c518" color="#f5c518" style={{ display: 'inline', marginRight: '4px' }} />{imdbData.imdbRating}</span>
                 )}
+
               </div>
             )}
 
@@ -257,8 +263,7 @@ const TorrentPageNetflix = () => {
 
       <div className="netflix-content">
         <div className="netflix-main-content">
-          <div className="netflix-section">
-            <h2>Episodes</h2>
+          
             <div className="netflix-section">
               <h2>Episodes</h2>
               <div className="netflix-episodes">
@@ -304,8 +309,8 @@ const TorrentPageNetflix = () => {
                         </div>
                         <p className="netflix-episode-desc">
                           {progress && progress.currentTime != null && progress.duration != null
-                            ? `Progress: ${progressService.formatTime(progress.currentTime)} / ${progressService.formatTime(progress.duration)}`
-                            : "Enjoy this episode."
+                            && `Progress: ${progressService.formatTime(progress.currentTime)} / ${progressService.formatTime(progress.duration)}`
+                            
                           }
                         </p>
                       </div>
@@ -327,7 +332,7 @@ const TorrentPageNetflix = () => {
                 })}
               </div>
             </div>
-          </div>
+         
 
           {otherFiles.length > 0 && (
             <div className="netflix-section">

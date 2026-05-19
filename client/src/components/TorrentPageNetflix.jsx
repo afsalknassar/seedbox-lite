@@ -165,6 +165,7 @@ const TorrentPageNetflix = () => {
   }
 
   if (selectedVideo) {
+
     const videoKey = `${torrentHash}-${selectedVideo.index}-${selectedVideo.name}`;
     
     // Try multiple methods to get progress
@@ -276,20 +277,6 @@ const TorrentPageNetflix = () => {
                 </button>
               )}
               
-              <button className="netflix-secondary-btn">
-                <Plus size={20} />
-                My List
-              </button>
-              
-              <button className="netflix-secondary-btn">
-                <ThumbsUp size={20} />
-                Rate
-              </button>
-              
-              <button className="netflix-secondary-btn">
-                <Share size={20} />
-                Share
-              </button>
             </div>
 
             {imdbData?.Plot && (
@@ -395,53 +382,7 @@ const TorrentPageNetflix = () => {
 
         {/* Sidebar Info */}
         <div className="netflix-sidebar">
-          {imdbData && (
-            <>
-              <div className="netflix-info-card">
-                <h3>Cast</h3>
-                <p>{imdbData.Actors}</p>
-              </div>
-
-              <div className="netflix-info-card">
-                <h3>Director</h3>
-                <p>{imdbData.Director}</p>
-              </div>
-
-              <div className="netflix-info-card">
-                <h3>Writer</h3>
-                <p>{imdbData.Writer}</p>
-              </div>
-
-              {imdbData.Awards && imdbData.Awards !== 'N/A' && (
-                <div className="netflix-info-card">
-                  <h3>Awards</h3>
-                  <p>{imdbData.Awards}</p>
-                </div>
-              )}
-
-              <div className="netflix-info-card">
-                <h3>Ratings</h3>
-                <div className="netflix-ratings">
-                  <div className="netflix-rating-item">
-                    <span>IMDB</span>
-                    <span>{imdbData.imdbRating}/10</span>
-                  </div>
-                  {imdbData.rottenTomatosRating !== 'N/A' && (
-                    <div className="netflix-rating-item">
-                      <span>Rotten Tomatoes</span>
-                      <span>{imdbData.rottenTomatosRating}</span>
-                    </div>
-                  )}
-                  {imdbData.metacriticRating !== 'N/A' && (
-                    <div className="netflix-rating-item">
-                      <span>Metacritic</span>
-                      <span>{imdbData.metacriticRating}/100</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+         
 
           {/* Torrent Stats */}
           <div className="netflix-info-card">

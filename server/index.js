@@ -410,7 +410,21 @@ async function fetchIMDBData(torrentName) {
 
   console.log(`\n❌ All metadata strategies entirely exhausted for: "${torrentName}"`);
 
-  return null;
+  const result = {
+    Title: primaryCandidate,
+    Year: year || null,
+    imdbRating: null,
+    Plot: null,
+    Poster: null,
+    Backdrop: null,
+    Genre: null,
+    imdbID: null,
+    tmdbID: null,
+    Type: isLikelySeries ? 'series' : 'movie',
+    source: null
+  };
+
+  return result;
 
 }
 

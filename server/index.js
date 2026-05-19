@@ -303,135 +303,232 @@ function generateSearchCandidates(torrentName) {
 // ==========================================
 
 async function fetchIMDBData(torrentName) {
-
-  // Check Cache
-  if (imdbCache.has(torrentName)) {
-    console.log(`📋 Using cached data for: ${torrentName}`);
-    return imdbCache.get(torrentName);
-  }
-
-  // Generate our clean candidates (This strips URLs, metadata boundaries, etc.)
-  const { candidates, year, isLikelySeries } = generateSearchCandidates(torrentName);
-
-
-  // ==========================================
-  // STRATEGY 1: TorrentClaw Iterative Search
-  // ==========================================
-  console.log(`\n🔍 [Tier 1] Starting TorrentClaw Iterative Search...`);
-
-  // Create realistic browser headers to bypass 403 Bot Protection
-
- const tcHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'X-API-Key': 'tc_65e6dbf8ad5125ccacbd82658fc3263c0c67d1ae30677fac',
-    'Authorization': 'Bearer tc_65e6dbf8ad5125ccacbd82658fc3263c0c67d1ae30677fac',
-    'Origin': 'https://torrentclaw.com',
-    'Referer': 'https://torrentclaw.com/',
-    'Connection': 'keep-alive'
-};
-
-  for (const query of candidates) {
-
-    if (!query || query.length < 2) continue;
-
-    console.log(`   ➔ Asking TorrentClaw: "${query}"`);
-
-    // I see you added your API key to the URL. Make sure it stays here!
-    const tcUrl = `https://torrentclaw.com/api/v1/search?q=${encodeURIComponent(query)}&limit=1&api_key=tc_65e6dbf8ad5125ccacbd82658fc3263c0c67d1ae30677fac`;
-
-    try {
-      // Pass the custom headers into the fetch request
-      const tcData = await fetchWithTimeout(tcUrl, { headers: tcHeaders }, 8000);
-
-      if (tcData && tcData.results && tcData.results.length > 0) {
-        const hit = tcData.results[0];
-        console.log(`✅ TorrentClaw Match Found! -> ${hit.title}`);
-
-        const result = {
-          Title: hit.title,
-          Year: hit.year,
-          imdbRating: hit.ratingImdb || hit.ratingTmdb,
-          Plot: hit.overview,
-          Poster: hit.posterUrl,
-          Backdrop: hit.backdropUrl,
-          Genre: hit.genres ? hit.genres.join(', ') : null,
-          imdbID: hit.imdbId,
-          tmdbID: hit.tmdbId,
-          Type: hit.contentType || 'movie',
-          source: 'torrentclaw'
-        };
-
-        imdbCache.set(torrentName, result);
-        return result;
-      }
-    } catch (e) {
-      console.log(`   ⚠️ TorrentClaw query failed/timeout: ${e.message}`);
+    console.log(`🎬 Fetching IMDB data for: "${torrentName}"`);
+    
+    // 1. Check cache first
+    if (imdbCache.has(torrentName)) {
+        console.log(`📋 Using cached IMDB data for: ${torrentName}`);
+        return imdbCache.get(torrentName);
     }
-  }
-  console.log(`❌ TorrentClaw exhausted. Moving to Tier 2...`);
+    
+    // 2. Generate clean title candidates using the smart parser
+    // This replaces cleanTorrentName and extracts variations cleanly
+    const { candidates, year, isLikelySeries } = generateSearchCandidates(torrentName);
+    
+    // Use the absolute cleanest candidate as our main title fallback
+    const primaryTitle = candidates[0]; 
+    
+    if (!primaryTitle || primaryTitle.length < 2) {
+        console.log(`❌ Parsed title too short or empty for: "${torrentName}"`);
+        return null;
+    }
+    
+    console.log(`🔍 Likely series: ${isLikelySeries} | Target Year: ${year || 'Any'}`);
+    const omdbKey = process.env.OMDB_API_KEY || 'trilogy';
 
-  // ==========================================
-  // STRATEGY 2: OMDB Absolute Fallback
-  // ==========================================
+    // ==========================================
+    // STRATEGY 1: Iterative OMDb Waterfall
+    // ==========================================
+    console.log(`\n🔍 [Tier 1] Starting OMDb Iterative Search...`);
+    
+    // Dynamically build smart strategies for each candidate generated
+    const omdbUrls = [];
+    for (const titleVariant of candidates) {
+        if (!titleVariant || titleVariant.length < 2) continue;
 
-  const omdbKey = process.env.OMDB_API_KEY || 'trilogy';
-  const primaryCandidate = candidates[0]; // Just use the best, cleanest guess
-
-  if (primaryCandidate && primaryCandidate.length >= 2) {
-
-    console.log(`\n🔍 [Tier 3] Trying OMDB Fallback: "${primaryCandidate}"`);
-    const typeParam = isLikelySeries ? '&type=series' : '&type=movie';
-    const omdbYearParam = year ? `&y=${year}` : '';
-    const omdbUrl = `http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(primaryCandidate)}${omdbYearParam}${typeParam}`;
-
-    try {
-      const omdbData = await fetchWithTimeout(omdbUrl);
-      if (omdbData && omdbData.Response === 'True') {
-        console.log(`✅ OMDB Success: ${omdbData.Title}`);
-        const result = {
-          Title: omdbData.Title,
-          Year: omdbData.Year,
-          imdbRating: omdbData.imdbRating,
-          Plot: omdbData.Plot,
-          Director: omdbData.Director,
-          Actors: omdbData.Actors,
-          Poster: omdbData.Poster !== 'N/A' ? omdbData.Poster : null,
-          Backdrop: null,
-          Genre: omdbData.Genre,
-          imdbID: omdbData.imdbID,
-          Type: omdbData.Type || 'movie',
-          source: 'omdb'
-        };
-
-        imdbCache.set(torrentName, result);
-        return result;
-      }
-    } catch (err) {
-      console.log(`❌ OMDB fallback failed: ${err.message}`);
+        if (isLikelySeries) {
+            if (year) omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}&y=${year}&type=series`);
+            omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}&type=series`);
+            omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&s=${encodeURIComponent(titleVariant)}&type=series`);
+        }
+        
+        if (year) omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}&y=${year}`);
+        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent(titleVariant)}`);
+        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&s=${encodeURIComponent(titleVariant)}&type=movie`);
+        omdbUrls.push(`http://www.omdbapi.com/?apikey=${omdbKey}&t=${encodeURIComponent('The ' + titleVariant)}`);
     }
 
-  }
+    // Remove duplicates and nulls from the query array
+    const filteredOmdbUrls = [...new Set(omdbUrls)].filter(Boolean);
 
-  console.log(`\n❌ All metadata strategies entirely exhausted for: "${torrentName}"`);
+    for (const url of filteredOmdbUrls) {
+        try {
+            console.log(`   ➔ Trying OMDb Endpoint: ${url}`);
+            // Assuming fetchWithTimeout is available globally as defined in your setup config
+            const data = await fetchWithTimeout(url, {}, 8000);
+            
+            if (data && data.Response === 'True') {
+                const movieData = data.Search ? data.Search[0] : data;
+                
+                if (movieData && movieData.Title) {
+                    console.log(`✅ Found OMDb Match: ${movieData.Title} (${movieData.Year})`);
+                    
+                    const result = {
+                        Title: movieData.Title,
+                        Year: movieData.Year,
+                        imdbRating: movieData.imdbRating,
+                        imdbVotes: movieData.imdbVotes,
+                        Plot: movieData.Plot,
+                        Director: movieData.Director,
+                        Actors: movieData.Actors,
+                        Poster: movieData.Poster !== 'N/A' ? movieData.Poster : null,
+                        Backdrop: null, 
+                        Genre: movieData.Genre,
+                        Runtime: movieData.Runtime,
+                        Rated: movieData.Rated,
+                        imdbID: movieData.imdbID,
+                        Type: movieData.Type || (isLikelySeries ? 'series' : 'movie'),
+                        source: 'omdb'
+                    };
+                    
+                    // Try to enhance OMDb metadata with a TMDB backdrop path
+                    try {
+                        const isSeriesType = result.Type === 'series';
+                        const tmdbSearchType = isSeriesType ? 'tv' : 'movie';
+                        const tmdbEnhanceUrl = `https://api.themoviedb.org/3/search/${tmdbSearchType}?api_key=3fd2be6f0c70a2a598f084ddfb75487d&query=${encodeURIComponent(result.Title)}`;
+                        
+                        const tmdbResponse = await fetchWithTimeout(tmdbEnhanceUrl, {
+                            headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
+                        }, 5000);
+                        
+                        if (tmdbResponse && tmdbResponse.results && tmdbResponse.results.length > 0) {
+                            const match = tmdbResponse.results[0];
+                            if (match.backdrop_path) {
+                                result.Backdrop = `https://image.tmdb.org/t/p/w1280${match.backdrop_path}`;
+                                console.log(`🎨 Enhanced with TMDB backdrop: ${result.Backdrop}`);
+                            }
+                        }
+                    } catch (enhanceError) {
+                        console.log(`⚠️ Backdrop enhancement skipped: ${enhanceError.message}`);
+                    }
+                    
+                    imdbCache.set(torrentName, result);
+                    return result;
+                }
+            }
+        } catch (error) {
+            console.log(`   ⚠️ OMDb loop item failed: ${error.message}`);
+        }
+    }
 
-  const result = {
-    Title: primaryCandidate,
-    Year: year || null,
-    imdbRating: null,
-    Plot: null,
-    Poster: null,
-    Backdrop: null,
-    Genre: null,
-    imdbID: null,
-    tmdbID: null,
-    Type: isLikelySeries ? 'series' : 'movie',
-    source: null
-  };
-
-  return result;
-
+    // ==========================================
+    // STRATEGY 2: TMDB Fallback Waterfall
+    // ==========================================
+    console.log(`\n🎭 [Tier 2] OMDb exhausted. Trying TMDB Fallbacks for: "${primaryTitle}"`);
+    
+    // 2A. Try TV Series Lookup if flagged likely series
+    if (isLikelySeries) {
+        try {
+            const tmdbTvUrl = `https://api.themoviedb.org/3/search/tv?api_key=3fd2be6f0c70a2a598f084ddfb75487d&query=${encodeURIComponent(primaryTitle)}${year ? `&first_air_date_year=${year}` : ''}`;
+            console.log(`🔍 Trying TMDB TV: ${tmdbTvUrl}`);
+            
+            const searchData = await fetchWithTimeout(tmdbTvUrl, {
+                headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
+            }, 10000);
+            
+            if (searchData && searchData.results && searchData.results.length > 0) {
+                const show = searchData.results[0];
+                const detailsUrl = `https://api.themoviedb.org/3/tv/${show.id}?api_key=3fd2be6f0c70a2a598f084ddfb75487d&append_to_response=credits`;
+                const details = await fetchWithTimeout(detailsUrl, {
+                    headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
+                }, 10000);
+                
+                if (details) {
+                    console.log(`✅ Found TMDB TV data: ${details.name}`);
+                    const result = {
+                        Title: details.name,
+                        Year: details.first_air_date?.substring(0, 4),
+                        imdbRating: details.vote_average ? details.vote_average.toFixed(1) : null,
+                        imdbVotes: details.vote_count ? `${details.vote_count.toLocaleString()}` : null,
+                        Plot: details.overview,
+                        Director: details.created_by?.map(c => c.name).join(', ') || 'N/A',
+                        Actors: details.credits?.cast?.slice(0, 4).map(a => a.name).join(', '),
+                        Poster: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null,
+                        Backdrop: details.backdrop_path ? `https://image.tmdb.org/t/p/w1280${details.backdrop_path}` : null,
+                        Genre: details.genres?.map(g => g.name).join(', '),
+                        Runtime: details.episode_run_time?.[0] ? `${details.episode_run_time[0]} min` : null,
+                        Rated: 'N/A',
+                        tmdbID: details.id,
+                        Type: 'series',
+                        source: 'tmdb-tv'
+                    };
+                    imdbCache.set(torrentName, result);
+                    return result;
+                }
+            }
+        } catch (error) {
+            console.log(`❌ TMDB TV fallback failed: ${error.message}`);
+        }
+    }
+    
+    // 2B. Try TMDB Movie Lookup
+    try {
+        const tmdbMovieUrl = `https://api.themoviedb.org/3/search/movie?api_key=3fd2be6f0c70a2a598f084ddfb75487d&query=${encodeURIComponent(primaryTitle)}${year ? `&year=${year}` : ''}`;
+        console.log(`🔍 Trying TMDB Movies: ${tmdbMovieUrl}`);
+        
+        const searchData = await fetchWithTimeout(tmdbMovieUrl, {
+            headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
+        }, 10000);
+        
+        if (searchData && searchData.results && searchData.results.length > 0) {
+            const movie = searchData.results[0];
+            const detailsUrl = `https://api.themoviedb.org/3/movie/${movie.id}?api_key=3fd2be6f0c70a2a598f084ddfb75487d&append_to_response=credits`;
+            const details = await fetchWithTimeout(detailsUrl, {
+                headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' }
+            }, 10000);
+            
+            if (details) {
+                console.log(`✅ Found TMDB Movie data: ${details.title}`);
+                const result = {
+                    Title: details.title,
+                    Year: details.release_date?.substring(0, 4),
+                    imdbRating: details.vote_average ? details.vote_average.toFixed(1) : null,
+                    imdbVotes: details.vote_count ? `${details.vote_count.toLocaleString()}` : null,
+                    Plot: details.overview,
+                    Director: details.credits?.crew?.find(p => p.job === 'Director')?.name || 'N/A',
+                    Actors: details.credits?.cast?.slice(0, 4).map(a => a.name).join(', '),
+                    Poster: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : null,
+                    Backdrop: details.backdrop_path ? `https://image.tmdb.org/t/p/w1280${details.backdrop_path}` : null,
+                    Genre: details.genres?.map(g => g.name).join(', '),
+                    Runtime: details.runtime ? `${details.runtime} min` : null,
+                    Rated: 'N/A',
+                    tmdbID: details.id,
+                    Type: 'movie',
+                    source: 'tmdb-movie'
+                };
+                imdbCache.set(torrentName, result);
+                return result;
+            }
+        }
+    } catch (error) {
+        console.log(`❌ TMDB Movie fallback failed: ${error.message}`);
+    }
+    
+    // ==========================================
+    // STRATEGY 3: Graceful Hard Fallback
+    // ==========================================
+    console.log(`\n❌ All live API strategies entirely exhausted for: "${torrentName}"`);
+    
+    const fallbackResult = {
+        Title: primaryTitle,
+        Year: year || null,
+        imdbRating: null,
+        imdbVotes: null,
+        Plot: "Metadata generation failed. Standard parsing fallback active.",
+        Director: 'N/A',
+        Actors: 'N/A',
+        Poster: null,
+        Backdrop: null,
+        Genre: null,
+        Runtime: null,
+        Rated: 'N/A',
+        imdbID: null,
+        tmdbID: null,
+        Type: isLikelySeries ? 'series' : 'movie',
+        source: 'local-fallback'
+    };
+    
+    return fallbackResult;
 }
 
 //UNIVERSAL TORRENT RESOLVER - Can find torrents by ANY identifier with optimized performance

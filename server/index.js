@@ -1475,7 +1475,7 @@ app.get('/api/torrents/:identifier/imdb', async (req, res) => {
 // UNIVERSAL STREAMING - Enhanced for production environments
 app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
   const { identifier, fileIdx } = req.params;
-  const debugLevel = process.env.DEBUG === 'true';
+  const debugLevel = true;
   if (debugLevel) console.log(`🎬 UNIVERSAL STREAM: ${identifier}/${fileIdx}`);
 
   // Track this specific stream request

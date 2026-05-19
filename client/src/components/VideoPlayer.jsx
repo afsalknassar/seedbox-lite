@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
-  SkipBack, 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  SkipBack,
   SkipForward,
   Settings,
   Download,
@@ -27,12 +27,12 @@ import { config } from '../config/environment';
 import progressService from '../services/progressService';
 import './VideoPlayer.css';
 
-const VideoPlayer = ({ 
-  src, 
-  title, 
-  onTimeUpdate, 
-  onProgress, 
-  initialTime = 0, 
+const VideoPlayer = ({
+  src,
+  title,
+  onTimeUpdate,
+  onProgress,
+  initialTime = 0,
   torrentHash = null,
   fileIndex = null,
   onClose = null
@@ -57,13 +57,17 @@ const VideoPlayer = ({
   });
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
-  
+
+  // Touch gestures state
+  const touchRef = useRef({ startX: 0, startY: 0, time: 0, isSeeking: false, initialTime: 0 });
+  const [swipeIndicator, setSwipeIndicator] = useState(null);
+
   // Progress tracking states
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [resumeData, setResumeData] = useState(null);
   const [hasShownResumeDialog, setHasShownResumeDialog] = useState(false);
   const [hasAppliedInitialTime, setHasAppliedInitialTime] = useState(false);
-  
+
   // Subtitle/CC support
   const [availableSubtitles, setAvailableSubtitles] = useState([]);
   const [onlineSubtitles, setOnlineSubtitles] = useState([]);
@@ -71,7 +75,7 @@ const VideoPlayer = ({
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
   const [isSearchingOnline, setIsSearchingOnline] = useState(false);
-  
+
   // Enhanced torrent/streaming states
   const [torrentStats, setTorrentStats] = useState({
     peers: 0,
@@ -85,7 +89,7 @@ const VideoPlayer = ({
   const [bufferHealth, setBufferHealth] = useState(0);
   const [networkStatus, setNetworkStatus] = useState('connecting');
   const [showTorrentStats, setShowTorrentStats] = useState(true);
-  
+
   const controlsTimeoutRef = useRef(null);
   const statsIntervalRef = useRef(null);
   const lastTapTimeRef = useRef(0);
@@ -94,14 +98,14 @@ const VideoPlayer = ({
   // Fetch real-time torrent statistics
   const fetchTorrentStats = useCallback(async () => {
     if (!torrentHash) return;
-    
+
     try {
       const response = await fetch(config.getTorrentUrl(torrentHash, 'stats'));
       if (response.ok) {
         const stats = await response.json();
         setTorrentStats(stats);
         setNetworkStatus(stats.peers > 0 ? 'connected' : 'seeking');
-        
+
         // Calculate buffer health based on download speed vs playback
         if (videoRef.current && stats.downloadSpeed > 0) {
           const currentBitrate = videoRef.current.playbackRate * 1024 * 1024; // Estimate
@@ -118,44 +122,44 @@ const VideoPlayer = ({
   // Enhanced buffer monitoring for instant streaming
   const updateBufferedProgress = useCallback(() => {
     if (!videoRef.current) return;
-    
+
     const video = videoRef.current;
     const buffered = video.buffered;
     const currentTime = video.currentTime;
     const duration = video.duration;
-    
+
     if (buffered.length > 0 && duration) {
       const ranges = [];
       let bufferedEnd = 0;
       let bufferAhead = 0;
       let bufferBehind = 0;
-      
+
       // Calculate all buffered ranges
       for (let i = 0; i < buffered.length; i++) {
         const start = buffered.start(i);
         const end = buffered.end(i);
         ranges.push({ start, end });
-        
+
         // Find buffer ahead of current position
         if (start <= currentTime && end > currentTime) {
           bufferAhead = end - currentTime;
           bufferedEnd = end;
         }
-        
+
         // Find buffer behind current position  
         if (end <= currentTime) {
           bufferBehind += (end - start);
         }
-        
+
         // Track maximum buffered position
         if (end > bufferedEnd) {
           bufferedEnd = end;
         }
       }
-      
+
       const bufferedPercent = (bufferedEnd / duration) * 100;
       const totalBuffered = bufferAhead + bufferBehind;
-      
+
       setBuffered(bufferedPercent);
       setBufferRanges(ranges);
       setBufferVisualization({
@@ -164,7 +168,7 @@ const VideoPlayer = ({
         total: totalBuffered,
         percentage: Math.round((totalBuffered / duration) * 100)
       });
-      
+
       // Calculate buffer health for instant play decisions
       const minBufferForPlay = 3; // 3 seconds minimum
       const healthScore = Math.min(100, (bufferAhead / minBufferForPlay) * 100);
@@ -178,7 +182,7 @@ const VideoPlayer = ({
       fetchTorrentStats(); // Initial fetch
       statsIntervalRef.current = setInterval(fetchTorrentStats, 2000); // Update every 2s
     }
-    
+
     return () => {
       if (statsIntervalRef.current) {
         clearInterval(statsIntervalRef.current);
@@ -193,15 +197,15 @@ const VideoPlayer = ({
       console.log('VideoPlayer: No torrentHash provided for subtitle fetching');
       return;
     }
-    
+
     console.log('VideoPlayer: Fetching subtitles for torrent:', torrentHash);
-    
+
     try {
       const response = await fetch(config.getTorrentUrl(torrentHash, 'files'));
       if (response.ok) {
         const files = await response.json();
         console.log('VideoPlayer: Fetched files:', files.length);
-        
+
         // Filter subtitle files (common extensions)
         const subtitleFiles = files.filter(file => {
           const ext = file.name.toLowerCase().split('.').pop();
@@ -211,7 +215,7 @@ const VideoPlayer = ({
           language: extractLanguageFromFilename(file.name),
           url: config.getDownloadUrl(torrentHash, file.index)
         }));
-        
+
         console.log('VideoPlayer: Found subtitle files:', subtitleFiles.length, subtitleFiles);
         setAvailableSubtitles(subtitleFiles);
       } else {
@@ -226,7 +230,7 @@ const VideoPlayer = ({
   const extractLanguageFromFilename = (filename) => {
     const languageMap = {
       'eng': 'English',
-      'spa': 'Spanish', 
+      'spa': 'Spanish',
       'fre': 'French',
       'ger': 'German',
       'ita': 'Italian',
@@ -254,21 +258,21 @@ const VideoPlayer = ({
     };
 
     const name = filename.toLowerCase();
-    
+
     // Look for language codes in filename
     for (const [code, language] of Object.entries(languageMap)) {
       if (name.includes(code)) {
         return language;
       }
     }
-    
+
     // Check for full language names
     for (const language of Object.values(languageMap)) {
       if (name.includes(language.toLowerCase())) {
         return language;
       }
     }
-    
+
     return 'Unknown';
   };
 
@@ -283,15 +287,15 @@ const VideoPlayer = ({
   // Search for online subtitles based on filename
   const searchOnlineSubtitles = useCallback(async (filename) => {
     if (!filename) return;
-    
+
     setIsSearchingOnline(true);
     console.log('VideoPlayer: Searching online subtitles for:', filename);
-    
+
     try {
       // Extract movie/show name from filename
       const cleanName = extractMediaName(filename);
       console.log('VideoPlayer: Extracted media name:', cleanName);
-      
+
       // Call our backend to search for subtitles
       const response = await fetch('/api/subtitles/search', {
         method: 'POST',
@@ -303,7 +307,7 @@ const VideoPlayer = ({
           filename: filename
         })
       });
-      
+
       if (response.ok) {
         const results = await response.json();
         console.log('VideoPlayer: Found online subtitles:', results.length);
@@ -324,20 +328,20 @@ const VideoPlayer = ({
   const loadOnlineSubtitle = useCallback(async (subtitle) => {
     try {
       console.log(`📥 Loading online subtitle: ${subtitle.language} from ${subtitle.source}`);
-      
+
       const downloadUrl = `/api/subtitles/download?url=${encodeURIComponent(subtitle.url)}&language=${encodeURIComponent(subtitle.language)}`;
       const response = await fetch(downloadUrl);
-      
+
       if (!response.ok) {
         throw new Error(`Download failed: ${response.status}`);
       }
-      
+
       const subtitleContent = await response.text();
-      
+
       // Create a blob URL for the subtitle
       const blob = new Blob([subtitleContent], { type: 'text/plain' });
       const subtitleUrl = URL.createObjectURL(blob);
-      
+
       // Add subtitle track to video
       const track = document.createElement('track');
       track.kind = 'subtitles';
@@ -345,15 +349,15 @@ const VideoPlayer = ({
       track.srclang = subtitle.language.toLowerCase().substring(0, 2);
       track.src = subtitleUrl;
       track.default = true;
-      
+
       // Remove existing tracks
       const existingTracks = videoRef.current.querySelectorAll('track');
       existingTracks.forEach(track => track.remove());
-      
+
       videoRef.current.appendChild(track);
-      
+
       console.log(`✅ Loaded online subtitle: ${subtitle.language}`);
-      
+
     } catch (error) {
       console.error('Error loading online subtitle:', error);
     }
@@ -363,25 +367,25 @@ const VideoPlayer = ({
   const extractMediaName = (filename) => {
     // Remove file extension
     let name = filename.replace(/\.[^/.]+$/, '');
-    
+
     // Remove common video quality markers
     name = name.replace(/\b(720p|1080p|1440p|2160p|4K|HD|CAM|TS|TC|SCR|DVDSCR|DVDRIP|HDTV|PDTV|DSR|WORKPRINT|VHS|TV|TVRIP|VOD|WEB-DL|WEBDL|WEBRip|WEB-Rip|BluRay|BDRip|BRRip|HDCAM|HDTS|DVDR|R3|R5|R6|PPVRIP|REMUX)\b/gi, '');
-    
+
     // Remove common group tags
     name = name.replace(/\b(YIFY|YTS|RARBG|EZTV|ETTV|TorrentGalaxy|1337x|CMRG|FGT|CHD|HDChina|WiKi|DON|NTb|DIMENSION|LOL|ASAP|SVA|KILLERS|ROVERS|RARBG|SPARKS|TBS|CRiMSON|AMRAP|CTU|FoV|JYK|GECKOS|IMMERSE|DRONES|AMIABLE|playBD|decibeL|EA|EbP|ESiR|EXViD|FxM|FZERO|GECKOS|GFY|GoGo|mSD|NeDiVx|nmd|PUKKA|QiM|RUBY|SAiMORNY|SHUTTIT|SiRiUS|UKB5|WAF|x0r|YMG|ZOOE|APL|ARAXIAL|DEViSE|DiSPOSABLE|DVL|EwDp|FFNDVD|FRAGMENT|Larceny|MESS|MOKONA|nVID|REAKTOR|REWARD|RUSH|Replica|SECTOR7|Skazhutin|STUCK|SWTYBLZ|TLF|Waf4rr0k|WAR|WISDOM|YARN|ZmN|iMBT|pov|xxop|KLAXXON|SAPHiRE|TOPAZ|CiNEFiLE|Japhson|KiMCHi|LLoRd|mfcorrea|NaRaYa|Noir|PRODJi|PSYCHD|pukka|QaFoNE|RayRep|SECTOR7|SiNK|ViTE|WAF|WASTE|x0r|YIFY|3LT0N|4yEo|Ac3|ADTRG|AFG|AGRY|AKRAKEN|ALANiS|AliKaDee|ALLiANCE|AMIABLE|AN0NYM0US|AOV|ARK01|ARROW|AXiNE|BestDivX|BIB|BINGO|BRMP|BTSFilms|Bushi|CaKePiPe|CD1|CD2|Cd3|CdRip|CHiCaNo|CiCXXX|CLUE|CNXP|CODEiNE|compcompletos|CopStuff|CPOTT|CPUL|CrAcKrOoKz|CRF|CRiSC|CRiTiCAL|CRYS|CTU|DaBaum|DarkScene|DataHead|DCS|DEF|DELUCIDATION|DeWMaN|DHD|DiAMOND|DiSSOLVE|DivXNL|DMZ|DON|DROiD|DTL|DTS|DVDFab|DVDnL|DVL|DXO|e.t.|EB|EbP|ECI|ELiA|EMERALD|EmX|EncodeLounge|ENTiTY|EPiK|ESiR|ETM|EVL|EwDp|ExtraScene|FARG|FASTSUB|Fertili|FiHTV|FiNaLe|FLoW|FnF|FooKaS|FOR|Forest|FoREST|FoRM|FoV|FRAGMENT|FuN|FXG|Ganool|GAZ|GBM|GDB|GHoST|GIBBY|GNome|GoGo|HaB|HACKS|HANDJOB|HigH|HSBS|idMKv|iGNiTiON|iGNORANT|iHD|iLG|IMB|INSPiRAL|IRANiAN|iRiSH|iron|iTALiAN|iTS|iXA|JAV|KeepFRDS|KiCKAZZ|KNiGHTS|KODAK|Krautspatzen|LANR|LAP|Lat|Lbtag|LIME|LiNKLE|LiViNG|LLG|LoRD|LoVE|LTRG|LTT|Lu|m1080p|M7PLuS|maz123|METiS|MF|MFCORREA|MIFUNE|MoH|MOLECULE|MOViEFiNATiCS|MOViERUSH|MP3|mSD|MSTV|MTB|Multi|MURPHYDVD|Mx|MYSTIC|NaRaYa|nCRO|NEMESIS|nEO|NESSUNDA|NETWORK|NFO|NhaNc3|NIKAPBDK|NineDragons|Nitrous|Noir|NORDiC|NOTiOS|NOX|nTrO|OCW|Otwieracz|P2P|PARTYBOY|PBDA|PHOCiS|PHOENA|PKF|PLAY|PLEX|PODiUM|POiNT|POISON|pov|PRE|PREMiUM|PRISM|PRoDJi|PROPER|PROVOKE|PSV|Pt|PUKKA|Pure|PYRo|QaFoNE|RAZZ|REAdNFO|REALLY|RECODED|REFiNED|ReleaseLounge|RENTS|REPLICA|REPTiLE|RETAiL|REVEiLLE|RFB|RG|Rio|RMVB|RNT|ROFL|RsL|RSG|RUBY|RUS|rydal|S4A|SAPHiRE|SAZ|SCOrp|ScREEN|SDDAZ|SDE|SDO|SECTOR7|SEEDiG|ShAaNiG|SHITBUSTERS|SHORTBREHD|SiLK|SiNG|SkAzHuTiN|SKiP|Slay3R|SMY|SPARKS|SPiKET|SPOOKS|SQU|SSDD|STUCK|SUBTiTLES|SUNLiGHT|SUPES|SVD|SWAGGERNAUT|SYNDiCATE|T00NG0D|TANTRiC|TBS|TDF|TDRS|TEAM|Tekno|Tenebrous|TFE|THeRe|THuG|TIKO|TimMm|TLF|TmG|ToK|TOPAZ|TRUEFRENCH|TSR|TWiZTED|TyL|uC|UKB5|UNRATED|UPiNSMOKE|UsaBit|URANiME|Vei|VeZ|ViP3R|VOLTAGE|WAWA|WAZ|WeLD|WiM|WOMBAT|WORKPRINT|WPi|WRD|WTF|XPLORE|XSHD|XTiNE|XViD|YAGO|YiFF|YOUNiVERSE|ZENTAROS|ZeaL|Zeus|ZMN|ZONE|ZoNE|ZZGtv|Rets|ARABiC|aXXo|BadTasteRecords|cOOt|DVDScr|FiH|GOM|LAP|LOMO|LUMiX|MbS|MEAPO|NEMOORTV|NoGroup|NwC|ORC|PTNK|REALiTY|SAMPLE|SYNDiCATE|TELESYNC|ToMpDaWg|TS|UnKnOwN|VECTORPDA|VH|ViSiON|Vomit|WRD|x264|XviD|BDRip|1080p|720p)\b/gi, '');
-    
+
     // Remove years in parentheses
     name = name.replace(/\(\d{4}\)/g, '');
-    
+
     // Remove brackets and their contents
     name = name.replace(/\[.*?\]/g, '');
-    
+
     // Replace dots, dashes, underscores with spaces
     name = name.replace(/[._-]/g, ' ');
-    
+
     // Remove extra spaces and trim
     name = name.replace(/\s+/g, ' ').trim();
-    
+
     return name;
   };
 
@@ -392,7 +396,7 @@ const VideoPlayer = ({
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
       setIsLoading(false);
-      
+
       // Set initial time after metadata is loaded
       if (initialTime > 0 && !hasAppliedInitialTime) {
         console.log('⏰ Resuming video at:', initialTime + 's');
@@ -400,7 +404,7 @@ const VideoPlayer = ({
         setCurrentTime(initialTime);
         setHasAppliedInitialTime(true);
       }
-      
+
       // Check for saved progress and show resume dialog
       // Only show dialog if no initialTime was provided (auto-resume)
       if (torrentHash && fileIndex !== null && !hasShownResumeDialog && initialTime === 0) {
@@ -409,8 +413,12 @@ const VideoPlayer = ({
           console.log('📋 Showing resume dialog for:', resumeInfo);
           setResumeData(resumeInfo);
           setShowResumeDialog(true);
+        } else {
+          video.play().catch(e => console.log('Autoplay prevented:', e));
         }
         setHasShownResumeDialog(true);
+      } else {
+        video.play().catch(e => console.log('Autoplay prevented:', e));
       }
     };
 
@@ -419,7 +427,7 @@ const VideoPlayer = ({
       setCurrentTime(newTime);
       updateBufferedProgress();
       onTimeUpdate?.(newTime);
-      
+
       // Save progress every 5 seconds
       if (torrentHash && fileIndex !== null && video.duration > 0) {
         const now = Date.now();
@@ -475,7 +483,7 @@ const VideoPlayer = ({
     if (!video) return;
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
+
     if (isMobile) {
       // Mobile-specific video event handlers
       const handleLoadStart = () => {
@@ -555,7 +563,7 @@ const VideoPlayer = ({
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-    
+
     // iOS Safari specific
     const video = videoRef.current;
     if (video) {
@@ -568,7 +576,7 @@ const VideoPlayer = ({
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
       document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-      
+
       if (video) {
         video.removeEventListener('webkitbeginfullscreen', () => setIsFullscreen(true));
         video.removeEventListener('webkitendfullscreen', () => setIsFullscreen(false));
@@ -586,11 +594,11 @@ const VideoPlayer = ({
         viewportMeta.name = 'viewport';
         document.head.appendChild(viewportMeta);
       }
-      
+
       if (isFullscreen) {
         // Optimize for fullscreen - allow zooming and remove address bar
         viewportMeta.content = 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, minimal-ui, viewport-fit=cover';
-        
+
         // Additional mobile Safari optimizations
         if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
           // Force viewport recalculation
@@ -620,10 +628,10 @@ const VideoPlayer = ({
         setIsPlaying(false);
       } else {
         const video = videoRef.current;
-        
+
         // Mobile-specific optimizations
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
+
         if (isMobile) {
           // For mobile devices, ensure we have user interaction before playing
           try {
@@ -631,11 +639,11 @@ const VideoPlayer = ({
             if (video.readyState < 2) { // HAVE_CURRENT_DATA
               video.load();
               setIsLoading(true);
-              
+
               // Wait for enough data to start playing
               await new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
-                
+
                 const onCanPlay = () => {
                   clearTimeout(timeout);
                   video.removeEventListener('canplay', onCanPlay);
@@ -643,7 +651,7 @@ const VideoPlayer = ({
                   setIsLoading(false);
                   resolve();
                 };
-                
+
                 const onError = (e) => {
                   clearTimeout(timeout);
                   video.removeEventListener('canplay', onCanPlay);
@@ -651,12 +659,12 @@ const VideoPlayer = ({
                   setIsLoading(false);
                   reject(e);
                 };
-                
+
                 video.addEventListener('canplay', onCanPlay);
                 video.addEventListener('error', onError);
               });
             }
-            
+
             // Play with mobile-specific handling
             const playPromise = video.play();
             if (playPromise !== undefined) {
@@ -666,7 +674,7 @@ const VideoPlayer = ({
           } catch (error) {
             console.warn('Mobile playback failed, trying fallback:', error);
             setIsLoading(false);
-            
+
             // Fallback: simple play attempt
             try {
               await video.play();
@@ -680,15 +688,15 @@ const VideoPlayer = ({
           // Desktop playback with buffering check
           const buffered = video.buffered;
           const currentTime = video.currentTime;
-          
+
           // Check for instant play capability
           let canPlayInstantly = false;
-          
+
           if (buffered.length > 0) {
             for (let i = 0; i < buffered.length; i++) {
               const start = buffered.start(i);
               const end = buffered.end(i);
-              
+
               // Check if current position has any buffered data
               if (start <= currentTime && end > currentTime) {
                 // For instant streaming, require minimal buffer (1 second)
@@ -699,7 +707,7 @@ const VideoPlayer = ({
               }
             }
           }
-          
+
           // Desktop instant play logic
           if (canPlayInstantly || bufferHealth > 30 || instantPlayEnabled) {
             try {
@@ -725,7 +733,7 @@ const VideoPlayer = ({
             // Show loading state while building initial buffer
             setIsLoading(true);
             console.log('Building buffer for smooth playback...');
-            
+
             // Try to play after minimal buffer is ready
             setTimeout(() => {
               if (videoRef.current && !isPlaying) {
@@ -789,12 +797,12 @@ const VideoPlayer = ({
   const toggleFullscreen = () => {
     const container = videoRef.current.parentElement;
     const video = videoRef.current;
-    
+
     // Detect mobile devices
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                    ('ontouchstart' in window) || 
-                    (navigator.maxTouchPoints > 0);
-    
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      ('ontouchstart' in window) ||
+      (navigator.maxTouchPoints > 0);
+
     if (!isFullscreen) {
       // Try to enter fullscreen
       if (isMobile) {
@@ -827,7 +835,7 @@ const VideoPlayer = ({
           container.msRequestFullscreen();
         }
       }
-      
+
       if (!isMobile || !video.webkitEnterFullscreen) {
         setIsFullscreen(true);
       }
@@ -848,7 +856,7 @@ const VideoPlayer = ({
         // CSS fullscreen fallback
         setIsFullscreen(false);
       }
-      
+
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         setIsFullscreen(false);
       }
@@ -867,22 +875,65 @@ const VideoPlayer = ({
     setShowSettings(false);
   };
 
+  // Touch Gesture Handlers
+  const handleTouchStart = (e) => {
+    touchRef.current = {
+      startX: e.touches[0].clientX,
+      startY: e.touches[0].clientY,
+      time: Date.now(),
+      isSeeking: false,
+      initialTime: videoRef.current ? videoRef.current.currentTime : 0
+    };
+  };
+
+  const handleTouchMove = (e) => {
+    if (!videoRef.current || duration === 0) return;
+
+    const deltaX = e.touches[0].clientX - touchRef.current.startX;
+    const deltaY = e.touches[0].clientY - touchRef.current.startY;
+
+    // Detect horizontal swipe for seeking
+    if (Math.abs(deltaX) > 30 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      touchRef.current.isSeeking = true;
+      // Calculate seek time: screen width = 90 seconds of seek (for finer control)
+      const screenWidth = window.innerWidth;
+      const seekAmount = (deltaX / screenWidth) * 90;
+      const newTime = Math.max(0, Math.min(duration, touchRef.current.initialTime + seekAmount));
+
+      const diff = newTime - touchRef.current.initialTime;
+      setSwipeIndicator(`${diff > 0 ? '+' : ''}${Math.round(diff)}s`);
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (touchRef.current.isSeeking && videoRef.current) {
+      const deltaX = e.changedTouches[0].clientX - touchRef.current.startX;
+      const screenWidth = window.innerWidth;
+      const seekAmount = (deltaX / screenWidth) * 90;
+      const newTime = Math.max(0, Math.min(duration, touchRef.current.initialTime + seekAmount));
+
+      videoRef.current.currentTime = newTime;
+      setSwipeIndicator(null);
+    }
+  };
+
   // Double-tap handler for mobile devices
-  const handleVideoTap = () => {
+  const handleVideoTap = (e) => {
+    // Prevent triggering tap if we were just seeking
+    if (touchRef.current.isSeeking) {
+      touchRef.current.isSeeking = false;
+      return;
+    }
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
     const now = Date.now();
     const tapInterval = 300; // milliseconds
-    
+
     if (now - lastTapTimeRef.current < tapInterval) {
       // Double-tap detected
       tapCountRef.current++;
       if (tapCountRef.current === 2) {
-        // On mobile, double-tap toggles fullscreen
-        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-          toggleFullscreen();
-        } else {
-          // On desktop, double-click toggles fullscreen
-          toggleFullscreen();
-        }
+        toggleFullscreen();
         tapCountRef.current = 0;
       }
     } else {
@@ -890,13 +941,25 @@ const VideoPlayer = ({
       tapCountRef.current = 1;
       setTimeout(() => {
         if (tapCountRef.current === 1) {
-          // Single tap action - toggle play/pause
-          togglePlay();
+          if (isMobile) {
+            setShowControls((prev) => {
+              const next = !prev;
+              if (next) {
+                clearTimeout(controlsTimeoutRef.current);
+                controlsTimeoutRef.current = setTimeout(() => {
+                  setShowControls(false);
+                }, 4000);
+              }
+              return next;
+            });
+          } else {
+            togglePlay();
+          }
         }
         tapCountRef.current = 0;
       }, tapInterval);
     }
-    
+
     lastTapTimeRef.current = now;
   };
 
@@ -909,13 +972,13 @@ const VideoPlayer = ({
   // Subtitle management functions
   const loadSubtitle = async (subtitleFile) => {
     if (!videoRef.current) return;
-    
+
     try {
       // Remove existing subtitle tracks
       const video = videoRef.current;
       const existingTracks = video.querySelectorAll('track');
       existingTracks.forEach(track => track.remove());
-      
+
       if (subtitleFile) {
         // Create new track element
         const track = document.createElement('track');
@@ -924,21 +987,21 @@ const VideoPlayer = ({
         track.srclang = subtitleFile.language.toLowerCase().substring(0, 2);
         track.src = subtitleFile.url;
         track.default = true;
-        
+
         video.appendChild(track);
-        
+
         // Wait for track to load
         track.addEventListener('load', () => {
           if (video.textTracks.length > 0) {
             video.textTracks[0].mode = subtitlesEnabled ? 'showing' : 'hidden';
           }
         });
-        
+
         setCurrentSubtitle(subtitleFile);
       } else {
         setCurrentSubtitle(null);
       }
-      
+
       setShowSubtitleMenu(false);
     } catch (error) {
       console.error('Error loading subtitle:', error);
@@ -969,14 +1032,14 @@ const VideoPlayer = ({
   };
 
   return (
-    <div 
+    <div
       className={`video-player-container ${isFullscreen ? 'fullscreen' : ''} ${isFullscreen && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile-fullscreen' : ''}`}
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
       {/* Close Button - always visible on the right */}
       {onClose && (
-        <button 
+        <button
           className="video-close-button"
           onClick={onClose}
           title="Close video"
@@ -984,25 +1047,34 @@ const VideoPlayer = ({
           <X size={24} />
         </button>
       )}
-      
+
       <video
         ref={videoRef}
         src={src}
         className="video-element"
         onClick={handleVideoTap}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onDoubleClick={toggleFullscreen}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        playsInline={false}
-        webkit-playsinline="false"
+        playsInline={true}
+        webkit-playsinline="true"
         controls={false}
-        preload="none"
+        preload="auto"
         crossOrigin="anonymous"
         muted={false}
-        autoPlay={false}
+        autoPlay={true}
         poster=""
       />
-      
+
+      {swipeIndicator && (
+        <div className="swipe-indicator">
+          {swipeIndicator}
+        </div>
+      )}
+
       {isLoading && (
         <div className="video-loading">
           <Loader2 className="loading-spinner" />
@@ -1023,12 +1095,12 @@ const VideoPlayer = ({
                 <WifiOff className="status-icon disconnected" size={16} />
               )}
               <span className={`status-text ${networkStatus}`}>
-                {networkStatus === 'connected' ? 'Connected' : 
-                 networkStatus === 'seeking' ? 'Seeking Peers' : 'Disconnected'}
+                {networkStatus === 'connected' ? 'Connected' :
+                  networkStatus === 'seeking' ? 'Seeking Peers' : 'Disconnected'}
               </span>
             </div>
             {/* Only overlay minimize button */}
-            <button 
+            <button
               className="stats-minimize"
               onClick={() => {
                 console.log('Minimize overlay clicked');
@@ -1039,14 +1111,14 @@ const VideoPlayer = ({
               <Minimize2 size={14} />
             </button>
           </div>
-          
+
           <div className="stats-grid">
             <div className="stat-item">
               <Users size={14} />
               <span className="stat-label">Peers</span>
               <span className="stat-value">{torrentStats.peers}</span>
             </div>
-            
+
             <div className="stat-item">
               <TrendingDown size={14} />
               <span className="stat-label">Download</span>
@@ -1054,7 +1126,7 @@ const VideoPlayer = ({
                 {(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} MB/s
               </span>
             </div>
-            
+
             <div className="stat-item">
               <TrendingUp size={14} />
               <span className="stat-label">Upload</span>
@@ -1062,19 +1134,19 @@ const VideoPlayer = ({
                 {(torrentStats.uploadSpeed / 1024 / 1024).toFixed(1)} MB/s
               </span>
             </div>
-            
+
             <div className="stat-item">
               <Download size={14} />
               <span className="stat-label">Progress</span>
               <span className="stat-value">{torrentStats.progress.toFixed(1)}%</span>
             </div>
           </div>
-          
+
           {/* Buffer Health Indicator */}
           <div className="buffer-health">
             <div className="buffer-label">Buffer Health</div>
             <div className="buffer-bar">
-              <div 
+              <div
                 className={`buffer-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}
                 style={{ width: `${Math.min(100, bufferHealth)}%` }}
               />
@@ -1086,7 +1158,7 @@ const VideoPlayer = ({
 
       {/* Stats Toggle Button (when hidden) */}
       {!showTorrentStats && torrentHash && (
-        <button 
+        <button
           className="stats-show-button"
           onClick={toggleTorrentStats}
           title="Show torrent stats"
@@ -1097,7 +1169,7 @@ const VideoPlayer = ({
 
       <div className={`video-controls ${showControls ? 'visible' : 'hidden'}`}>
         <div className="controls-background" />
-        
+
         {/* Enhanced Progress Bar with Multiple Buffer Ranges */}
         <div className="progress-container" onClick={handleSeek}>
           <div className="progress-bar">
@@ -1118,35 +1190,35 @@ const VideoPlayer = ({
                 );
               })
             )}
-            
+
             {/* Overall buffer indicator */}
-            <div 
-              className="progress-buffered" 
+            <div
+              className="progress-buffered"
               style={{ width: `${buffered}%` }}
             />
-            
+
             {/* Played progress */}
-            <div 
-              className="progress-played" 
+            <div
+              className="progress-played"
               style={{ width: `${(currentTime / duration) * 100}%` }}
             />
-            
+
             {/* Current position thumb */}
-            <div 
+            <div
               className="progress-thumb"
               style={{ left: `${(currentTime / duration) * 100}%` }}
             />
-            
+
             {/* Torrent download progress overlay */}
             {torrentStats.progress > 0 && (
-              <div 
+              <div
                 className="progress-torrent"
                 style={{ width: `${torrentStats.progress}%` }}
                 title={`Torrent downloaded: ${torrentStats.progress.toFixed(1)}%`}
               />
             )}
           </div>
-          
+
           {/* Progress time tooltip with enhanced buffer info */}
           <div className="progress-tooltip">
             {formatTime(currentTime)} / {formatTime(duration)}
@@ -1157,7 +1229,7 @@ const VideoPlayer = ({
             )}
             {bufferVisualization.percentage > 0 && (
               <span className="buffer-status">
-                • Buffer: {bufferVisualization.percentage}% 
+                • Buffer: {bufferVisualization.percentage}%
                 {bufferVisualization.ahead > 0 && ` (${Math.round(bufferVisualization.ahead)}s ahead)`}
               </span>
             )}
@@ -1182,7 +1254,7 @@ const VideoPlayer = ({
               <div className="buffer-health-display">
                 <div className="buffer-health-label">Buffer Health</div>
                 <div className="buffer-health-bar">
-                  <div 
+                  <div
                     className={`buffer-health-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}
                     style={{ width: `${Math.max(bufferHealth, 5)}%` }}
                   />
@@ -1201,11 +1273,11 @@ const VideoPlayer = ({
             <button onClick={togglePlay} className="control-button play-button">
               {isPlaying ? <Pause size={24} /> : <Play size={24} />}
             </button>
-            
+
             <button onClick={() => skip(-10)} className="control-button">
               <SkipBack size={20} />
             </button>
-            
+
             <button onClick={() => skip(10)} className="control-button">
               <SkipForward size={20} />
             </button>
@@ -1237,19 +1309,19 @@ const VideoPlayer = ({
           <div className="controls-right">
             {/* Subtitle Menu */}
             <div className="subtitle-menu">
-              <button 
-                onClick={() => setShowSubtitleMenu(!showSubtitleMenu)} 
+              <button
+                onClick={() => setShowSubtitleMenu(!showSubtitleMenu)}
                 className={`control-button ${currentSubtitle ? 'active' : ''}`}
                 title="Subtitles"
               >
                 <Subtitles size={20} />
               </button>
-              
+
               {showSubtitleMenu && (
                 <div className="subtitle-dropdown">
                   <div className="subtitle-section">
                     <span>Local Subtitles</span>
-                    
+
                     {/* None option */}
                     <button
                       onClick={() => loadSubtitle(null)}
@@ -1258,7 +1330,7 @@ const VideoPlayer = ({
                       <Languages size={16} />
                       Off
                     </button>
-                    
+
                     {/* Available subtitle tracks from torrent */}
                     {availableSubtitles.map((subtitle, index) => (
                       <button
@@ -1270,7 +1342,7 @@ const VideoPlayer = ({
                         {subtitle.language}
                       </button>
                     ))}
-                    
+
                     {/* No local subtitles available */}
                     {availableSubtitles.length === 0 && (
                       <div className="no-subtitles">
@@ -1282,7 +1354,7 @@ const VideoPlayer = ({
                   {/* Online Subtitle Search */}
                   <div className="subtitle-section">
                     <span>Online Search</span>
-                    
+
                     {/* Search button */}
                     <button
                       onClick={() => searchOnlineSubtitles(title)}
@@ -1296,7 +1368,7 @@ const VideoPlayer = ({
                       )}
                       {isSearchingOnline ? 'Searching...' : 'Search Online'}
                     </button>
-                    
+
                     {/* Online subtitle results */}
                     {onlineSubtitles.map((subtitle, index) => (
                       <button
@@ -1308,7 +1380,7 @@ const VideoPlayer = ({
                         {subtitle.language} ({subtitle.source})
                       </button>
                     ))}
-                    
+
                     {/* No online results message */}
                     {!isSearchingOnline && onlineSubtitles.length === 0 && availableSubtitles.length === 0 && (
                       <div className="no-subtitles">
@@ -1316,7 +1388,7 @@ const VideoPlayer = ({
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Subtitle toggle when track is loaded */}
                   {currentSubtitle && (
                     <div className="subtitle-section">
@@ -1335,13 +1407,13 @@ const VideoPlayer = ({
             </div>
 
             <div className="settings-menu">
-              <button 
-                onClick={() => setShowSettings(!showSettings)} 
+              <button
+                onClick={() => setShowSettings(!showSettings)}
                 className="control-button"
               >
                 <Settings size={20} />
               </button>
-              
+
               {showSettings && (
                 <div className="settings-dropdown">
                   <div className="settings-section">
@@ -1360,17 +1432,17 @@ const VideoPlayer = ({
               )}
             </div>
 
-            <a 
-              href={src} 
-              download 
+            <a
+              href={src}
+              download
               className="control-button download-button"
               title="Download video"
             >
               <Download size={20} />
             </a>
 
-            <button 
-              onClick={toggleFullscreen} 
+            <button
+              onClick={toggleFullscreen}
               className="control-button fullscreen-button"
               title="Fullscreen (or double-tap video)"
             >
@@ -1395,13 +1467,13 @@ const VideoPlayer = ({
               </div>
             </div>
             <div className="resume-actions">
-              <button 
+              <button
                 onClick={handleStartFromBeginning}
                 className="resume-button secondary"
               >
                 Start from Beginning
               </button>
-              <button 
+              <button
                 onClick={handleResumeVideo}
                 className="resume-button primary"
               >

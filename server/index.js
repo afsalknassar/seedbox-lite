@@ -820,7 +820,7 @@ app.post('/api/torrents', async (req, res) => {
 });
 
 // Move these to the TOP of your file
-const fs = require('fs').promises; 
+const fsPromises = require('fs').promises;
 const parseTorrent = require('parse-torrent');
 
 // UNIVERSAL FILE UPLOAD - Handle .torrent files
@@ -837,7 +837,7 @@ app.post('/api/torrents/upload', upload.single('torrentFile'), async (req, res) 
     console.log(`📁 Processing uploaded file: ${req.file.originalname}`);
 
     // ASYNC read - does not block the server
-    const torrentBuffer = await fs.readFile(torrentPath);
+    const torrentBuffer = await fsPromises.readFile(torrentPath);
 
     const torrent = await new Promise((resolve, reject) => {
       let loadedTorrent;
@@ -948,7 +948,7 @@ app.post('/api/torrents/upload', upload.single('torrentFile'), async (req, res) 
     });
 
     // Clean up uploaded file asynchronously
-    await fs.unlink(torrentPath);
+    await fsPromises.unlink(torrentPath);
 
     res.json({
       success: true,
@@ -964,7 +964,7 @@ app.post('/api/torrents/upload', upload.single('torrentFile'), async (req, res) 
 
     // Clean up file on error asynchronously
     try {
-      await fs.unlink(torrentPath).catch(() => {}); // Catch inline so it doesn't throw a new unhandled error
+      await fsPromises.unlink(torrentPath).catch(() => {}); // Catch inline so it doesn't throw a new unhandled error
     } catch (cleanupError) {
       console.error(`❌ Failed to cleanup file:`, cleanupError.message);
     }

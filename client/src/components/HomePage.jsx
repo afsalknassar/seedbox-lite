@@ -12,10 +12,39 @@ const HomePage = () => {
   const [recentTorrents, setRecentTorrents] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // NEW: State for dynamic loading messages
+  const [loadingText, setLoadingText] = useState('Syncing...');
 
   useEffect(() => {
     loadRecentTorrents();
   }, []);
+
+  // NEW: Dynamic loading message cycler
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      const messages = [
+        "Connecting to swarm...",
+        "Finding peers...",
+        "Downloading metadata...",
+        "Resolving files...",
+        "Almost ready..."
+      ];
+      let step = 0;
+      setLoadingText(messages[0]);
+      
+      interval = setInterval(() => {
+        step++;
+        // Stop cycling if we reach the end, just hold on the last message
+        if (step < messages.length) {
+          setLoadingText(messages[step]);
+        }
+      }, 3500); // Change text every 3.5 seconds
+    }
+    
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const loadRecentTorrents = () => {
     const recent = torrentHistoryService.getRecentTorrents(8);
@@ -36,7 +65,6 @@ const HomePage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        console.log('Torrent handled successfully:', data);
         const existingInHistory = torrentHistoryService.getTorrentByInfoHash(data.infoHash);
 
         if (existingInHistory) {
@@ -173,7 +201,8 @@ const HomePage = () => {
               {loading ? (
                 <>
                   <div className="spinner-ring" />
-                  <span>Syncing...</span>
+                  {/* CHANGED: Now uses the dynamic loadingText state */}
+                  <span>{loadingText}</span>
                 </>
               ) : (
                 <>
@@ -183,6 +212,13 @@ const HomePage = () => {
               )}
             </button>
           </div>
+          
+          {/* NEW: Helper text that appears only during a long load */}
+          {loading && (
+            <div className="loading-helper-text" style={{ fontSize: '0.8rem', color: '#888', marginTop: '8px', textAlign: 'center' }}>
+              Magnet links can take up to 20 seconds to resolve.
+            </div>
+          )}
         </form>
 
         {/* MIDDLE: "OR" Divider */}
@@ -235,9 +271,10 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* History Section */}
+      {/* History Section (Unchanged) */}
       {recentTorrents.length > 0 && (
         <div className="history-section">
+          {/* ... Keep your existing history section code here ... */}
           <div className="history-header">
             <div className="history-title">
               <Clock size={22} />

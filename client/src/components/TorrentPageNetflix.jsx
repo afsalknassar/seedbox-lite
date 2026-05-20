@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Download, Star, Calendar, Clock, Info, FileText } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -6,9 +6,13 @@ import { config } from '../config/environment';
 import progressService from '../services/progressService';
 import './TorrentPageNetflix.css';
 
+// 1. Move Regex OUTSIDE the component so it isn't recreated on every render
+const VIDEO_REGEX = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i;
+
 const TorrentPageNetflix = () => {
   const { torrentHash } = useParams();
   const navigate = useNavigate();
+  
   const [torrent, setTorrent] = useState(null);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,87 +21,127 @@ const TorrentPageNetflix = () => {
   const [recentProgress, setRecentProgress] = useState({});
   const [imdbData, setImdbData] = useState(null);
 
-  const fetchIMDBData = useCallback(async () => {
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}/imdb`);
-      const data = await response.json();
-
-      if (data.success && data.imdb) {
-        setImdbData(data.imdb);
-      } else {
-        setImdbData(null);
-      }
-    } catch (err) {
-      console.error('Error fetching IMDB data:', err);
-      setImdbData(null);
-    }
-  }, [torrentHash]);
-
-  const fetchTorrentDetails = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const response = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch torrent data`);
-      }
-
-      const data = await response.json();
-
-      setTorrent(data.torrent);
-      setFiles(data.files || []);
-
-    } catch (err) {
-      console.error('Error fetching torrent details:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [torrentHash]);
-
-  const fetchTorrentProgress = useCallback(async () => {
-    try {
-      const response = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTorrent(prev => ({ ...prev, ...data.torrent }));
-      }
-    } catch (err) {
-      console.error('Error fetching progress:', err);
-    }
-  }, [torrentHash]);
-
+  // 2. Use Refs to track current state without triggering re-renders in intervals
+  const isVideoOpenRef = useRef(false);
+  
+  // Sync the ref with the state so the interval can read it without being a dependency
   useEffect(() => {
-    if (torrentHash) {
-      fetchTorrentDetails();
-      fetchIMDBData();
+    isVideoOpenRef.current = !!selectedVideo;
+  }, [selectedVideo]);
 
-      const allProgress = progressService.getAllProgress();
-      const torrentProgress = {};
-      Object.values(allProgress).forEach(progress => {
-        if (progress.torrentHash === torrentHash) {
-          torrentProgress[progress.fileIndex] = progress;
+  // 3. Centralized, abortable fetch logic
+  useEffect(() => {
+    if (!torrentHash) return;
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    const loadInitialData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch IMDB and Torrent Details in parallel for speed
+        const [imdbRes, torrentRes] = await Promise.all([
+          fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}/imdb`, { signal }).catch(() => null),
+          fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`, { signal })
+        ]);
+
+        if (!torrentRes.ok) throw new Error('Failed to fetch torrent data');
+
+        const torrentData = await torrentRes.json();
+        setTorrent(torrentData.torrent);
+        setFiles(torrentData.files || []);
+
+        if (imdbRes && imdbRes.ok) {
+          const imdbJson = await imdbRes.json();
+          if (imdbJson.success) setImdbData(imdbJson.imdb);
         }
-      });
-      setRecentProgress(torrentProgress);
 
-      const progressInterval = setInterval(() => {
-        if (!selectedVideo) {
-          fetchTorrentProgress();
+        // Load local progress history
+        const allProgress = progressService.getAllProgress();
+        const torrentProgress = {};
+        Object.values(allProgress).forEach(progress => {
+          if (progress.torrentHash === torrentHash) {
+            torrentProgress[progress.fileIndex] = progress;
+          }
+        });
+        setRecentProgress(torrentProgress);
+
+      } catch (err) {
+        if (err.name === 'AbortError') return; // Ignore unmount aborts
+        console.error('Error loading data:', err);
+        setError(err.message);
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      controller.abort(); // Cleanup on unmount
+    };
+  }, [torrentHash]);
+
+  // 4. Isolated Polling Effect
+  useEffect(() => {
+    if (!torrentHash) return;
+    
+    // We don't abort the polling requests on unmount to keep code clean, 
+    // but we prevent state updates if unmounted using a flag.
+    let isMounted = true;
+
+    const fetchProgress = async () => {
+      // Don't poll if a video is currently playing (saves bandwidth/CPU)
+      if (isVideoOpenRef.current) return;
+
+      try {
+        const response = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`);
+        if (response.ok && isMounted) {
+          const data = await response.json();
+          // Only update specific fields to prevent massive re-renders
+          setTorrent(prev => prev ? { ...prev, ...data.torrent } : data.torrent);
+          
+          // Optionally update file progress if your API returns it
+          if (data.files) setFiles(data.files);
         }
-      }, 2000);
+      } catch (err) {
+        // Silently fail polling - don't crash the UI for a missed heartbeat
+        console.debug('Polling error:', err);
+      }
+    };
 
-      return () => clearInterval(progressInterval);
-    }
-  }, [torrentHash, fetchTorrentDetails, fetchIMDBData, fetchTorrentProgress, selectedVideo]);
+    const intervalId = setInterval(fetchProgress, 2000);
 
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [torrentHash]); // Notice selectedVideo is NOT a dependency here anymore
+
+  // 5. Memoize expensive array filtering
+  const { videoFiles, otherFiles, mainVideoFile } = useMemo(() => {
+    const videos = [];
+    const others = [];
+    
+    files.forEach(file => {
+      if (VIDEO_REGEX.test(file.name)) videos.push(file);
+      else others.push(file);
+    });
+
+    return {
+      videoFiles: videos,
+      otherFiles: others,
+      mainVideoFile: videos.length > 0 ? videos[0] : null
+    };
+  }, [files]);
+
+  // Formatters remain the same...
   const formatFileSize = (bytes) => {
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     if (!bytes || isNaN(bytes) || bytes === 0) return '0 B';
     const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-    if (isNaN(i) || i < 0) return '0 B';
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + ['B', 'KB', 'MB', 'GB', 'TB'][i];
   };
 
   const formatSpeed = (bytesPerSecond) => {
@@ -175,18 +219,6 @@ const TorrentPageNetflix = () => {
       </div>
     );
   }
-
-  const mainVideoFile = files.find(file =>
-    /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i.test(file.name)
-  );
-
-  const videoFiles = files.filter(file =>
-    /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i.test(file.name)
-  );
-
-  const otherFiles = files.filter(file =>
-    !/\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i.test(file.name)
-  );
 
   const heroBackground = imdbData?.Backdrop
     ? `url(${imdbData.Backdrop})`

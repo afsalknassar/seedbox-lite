@@ -13,6 +13,9 @@ const HomePage = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [showAllCache, setShowAllCache] = useState(false);
+  const [cacheSearchQuery, setCacheSearchQuery] = useState('');
+
   const [loadingText, setLoadingText] = useState('Syncing...');
 
   // Cache management state
@@ -52,6 +55,22 @@ const HomePage = () => {
     }
     return () => clearInterval(interval);
   }, [loading]);
+
+
+  if (loading) {
+    return (
+      <div className="modern-loader-overlay">
+        <div className="loader-content">
+          <div className="glowing-rings">
+            <div className="ring ring-1"></div>
+            <div className="ring ring-2"></div>
+            <div className="ring ring-3"></div>
+          </div>
+          <p className="shimmer-text">{loadingText}</p>
+        </div>
+      </div>
+    );
+  }
 
   const loadRecentTorrents = () => {
     const recent = torrentHistoryService.getRecentTorrents(8);
@@ -163,8 +182,26 @@ const HomePage = () => {
   };
 
   const goToTorrent = (infoHash) => {
-    torrentHistoryService.updateLastAccessed(infoHash);
-    navigate(`/torrent/${infoHash}`);
+    // 1. Check if the torrent is currently alive on the server
+    const isAliveOnServer = cacheStats.torrents.some(t => t.infoHash === infoHash);
+
+    if (isAliveOnServer) {
+      // 🟢 SAFE: The server has it in memory right now. Navigate instantly.
+      torrentHistoryService.updateLastAccessed(infoHash);
+      navigate(`/torrent/${infoHash}`);
+    } else {
+      // 🔴 MISSING: The server restarted or swept it. We need to wake it back up!
+      const historyItem = torrentHistoryService.getTorrentByInfoHash(infoHash);
+
+      if (historyItem && historyItem.originalInput) {
+        // Re-submit the original magnet link/hash to the server
+        // This will trigger your loading spinner and navigate automatically when ready!
+        addTorrent({ torrentId: historyItem.originalInput });
+      } else {
+        // Fallback: Just send the infoHash and let the backend rebuild the magnet
+        addTorrent({ torrentId: infoHash });
+      }
+    }
   };
 
   const removeTorrentFromHistory = (infoHash, e) => {
@@ -272,9 +309,11 @@ const HomePage = () => {
 
   const filteredTorrents = searchQuery
     ? torrentHistoryService.searchTorrents(searchQuery)
-    : recentTorrents.filter(torrent =>
-      cacheStats.torrents.some(cachedTorrent => cachedTorrent.infoHash === torrent.infoHash)
-    );
+    : recentTorrents;
+
+  const filteredCacheTorrents = cacheSearchQuery
+    ? cacheStats.torrents.filter(t => t.name.toLowerCase().includes(cacheSearchQuery.toLowerCase()))
+    : cacheStats.torrents;
 
   return (
     <div className="home-container">
@@ -330,9 +369,34 @@ const HomePage = () => {
         </div>
       </div>
 
-      <div className="features-grid">
-        <div className="feature-card"><div className="feature-icon-box"><Upload size={20} /></div><span>Instant Streaming</span></div>
-        <div className="feature-card"><div className="feature-icon-box"><HardDrive size={20} /></div><span>Progress Tracking</span></div>
+      <div className="modern-stats-grid">
+        <div className="glass-stat-card">
+          <div className="stat-icon-wrapper blue">
+            <Activity size={20} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Cache Size</span>
+            <span className="stat-value">{cacheStats.totalSizeFormatted}</span>
+          </div>
+        </div>
+        <div className="glass-stat-card">
+          <div className="stat-icon-wrapper purple">
+            <Download size={20} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Downloaded</span>
+            <span className="stat-value">{cacheStats.downloadedBytes}</span>
+          </div>
+        </div>
+        <div className="glass-stat-card">
+          <div className="stat-icon-wrapper green">
+            <Play size={20} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Active Items</span>
+            <span className="stat-value">{cacheStats.activeTorrents}</span>
+          </div>
+        </div>
       </div>
 
 
@@ -400,101 +464,100 @@ const HomePage = () => {
           </div>
         </div>
       )}
-      
+
       {/* SERVER FILES & CACHE UI */}
 
       <div className="history-section server-cache-section">
         {/* Modern Glass Header */}
         <div className="section-header-glass">
           <div className="header-title-group">
-            <div className="icon-glow-wrapper">
+            <div className="history-title">
               <HardDrive size={22} />
             </div>
             <h2>Server Cache</h2>
+
+          </div>
+
+          <div className="history-actions">
+            <button onClick={() => setShowAllCache(!showAllCache)} className="btn-glass">
+              <span>{showAllCache ? 'Show Less' : `View All (${filteredCacheTorrents.length})`}</span>
+            </button>
             <button onClick={loadCacheStats} className="btn-glass icon-only" title="Refresh Server Data" disabled={refreshingCache}>
               <RefreshCw size={18} className={refreshingCache ? 'spin-animation' : ''} />
             </button>
-          </div>
 
-          <div className="header-actions-group">
-            
-            <button onClick={() => clearOldCache(7)} className="btn-glass" title="Clear files older than 7 days">
-              <Calendar size={16} />
-              <span className="action-text">Clear Old</span>
-            </button>
-            <button onClick={clearAllCache} className="btn-glass danger" title="Wipe all server files">
-              <Trash2 size={16} />
-              <span className="action-text">Wipe Server</span>
-            </button>
           </div>
         </div>
 
-        {/* Modern Stats Grid */}
-        <div className="modern-stats-grid">
-          <div className="glass-stat-card">
-            <div className="stat-icon-wrapper blue">
-              <Activity size={20} />
-            </div>
-            <div className="stat-content">
-              <span className="stat-label">Cache Size</span>
-              <span className="stat-value">{cacheStats.totalSizeFormatted}</span>
-            </div>
+        {showAllCache && cacheStats.torrents.length > 0 && (
+          <div className="history-search">
+            <Search size={18} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search server cache..."
+              value={cacheSearchQuery}
+              onChange={(e) => setCacheSearchQuery(e.target.value)}
+            />
+
           </div>
-          <div className="glass-stat-card">
-            <div className="stat-icon-wrapper purple">
-              <Download size={20} />
-            </div>
-            <div className="stat-content">
-              <span className="stat-label">Downloaded</span>
-              <span className="stat-value">{cacheStats.downloadedBytes}</span>
-            </div>
-          </div>
-          <div className="glass-stat-card">
-            <div className="stat-icon-wrapper green">
-              <Play size={20} />
-            </div>
-            <div className="stat-content">
-              <span className="stat-label">Active Items</span>
-              <span className="stat-value">{cacheStats.activeTorrents}</span>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Active Files Grid */}
         {cacheStats.torrents.length > 0 ? (
-          <div className="modern-cache-grid">
-            {cacheStats.torrents.map((t) => {
-              const percent = t.progress ? (t.progress * 100).toFixed(1) : 0;
-              return (
-                <div key={t.infoHash} className="modern-cache-card" onClick={() => goToTorrent(t.infoHash)}>
-                  <div className="card-top-row">
-                    <div className="card-main-info">
-                      <h4 title={t.name}>{t.name}</h4>
-                      <div className="card-meta">
-                        <span className="file-size">{formatBytes(t.size || 0)}</span>
-                        <span className="dot-separator">•</span>
-                        <span className="progress-text">{formatBytes(t.downloadSpeed || 0)}/s</span>
-                         <span className="dot-separator">•</span>
-                        <span className="progress-text">{t.peers || 0} peers</span>
+          filteredCacheTorrents.length > 0 ? (
+            <>
+              <div className="modern-cache-grid">
+                {(showAllCache ? filteredCacheTorrents : filteredCacheTorrents.slice(0, 4)).map((t) => {
+                  const percent = t.progress ? (t.progress * 100).toFixed(1) : 0;
+                  return (
+                    <div key={t.infoHash} className="modern-cache-card" onClick={() => goToTorrent(t.infoHash)}>
+                      <div className="card-top-row">
+                        <div className="card-main-info">
+                          <h4 title={t.name}>{t.name}</h4>
+                          <div className="card-meta">
+                            <span className="file-size">{formatBytes(t.size || 0)}</span>
+                            <span className="dot-separator">•</span>
+                            <span className="progress-text">{formatBytes(t.downloadSpeed || 0)}/s</span>
+                            <span className="dot-separator">•</span>
+                            <span className="progress-text">{t.peers || 0} peers</span>
+                          </div>
+                        </div>
+                        <button
+                          className="btn-remove"
+                          onClick={(e) => { e.stopPropagation(); clearSingleTorrent(t.infoHash, t.name); }}
+                          title="Delete from server"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      {/* Visual Progress Bar */}
+                      <div className="progress-bar-container">
+                        <div className="progress-bar-fill" style={{ width: `${percent}%` }}></div>
                       </div>
                     </div>
-                    <button
-                      className="btn-remove"
-                      onClick={(e) => { e.stopPropagation(); clearSingleTorrent(t.infoHash, t.name); }}
-                      title="Delete from server"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  );
+                })}
 
-                  {/* Visual Progress Bar */}
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill" style={{ width: `${percent}%` }}></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+              </div>
+              {showAllCache && (
+                <div className='modern-cache-grid'>
+                  <button onClick={() => clearOldCache(7)} className="btn-glass" title="Clear files older than 7 days">
+                    <Calendar size={16} />
+                    <span className="text">Clear Old (7 Days)</span>
+                  </button>
+                  <button onClick={clearAllCache} className="btn-glass danger" title="Wipe all server files">
+                    <Trash2 size={16} />
+                    <span className="text">Wipe Server</span>
+                  </button>
+                </div>)}
+            </>
+
+          ) : (
+            <div className="empty-glass-state">
+              <p>No matches found in server cache.</p>
+            </div>
+          )
         ) : (
           <div className="empty-glass-state">
             <div className="empty-icon-wrapper">

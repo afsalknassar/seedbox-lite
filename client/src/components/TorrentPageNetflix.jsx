@@ -11,8 +11,10 @@ const VIDEO_REGEX = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i;
 
 const TorrentPageNetflix = () => {
   const { torrentHash } = useParams();
+
+  console.log(torrentHash);
   const navigate = useNavigate();
-  
+
   const [torrent, setTorrent] = useState(null);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +25,7 @@ const TorrentPageNetflix = () => {
 
   // 2. Use Refs to track current state without triggering re-renders in intervals
   const isVideoOpenRef = useRef(false);
-  
+
   // Sync the ref with the state so the interval can read it without being a dependency
   useEffect(() => {
     isVideoOpenRef.current = !!selectedVideo;
@@ -87,7 +89,7 @@ const TorrentPageNetflix = () => {
   // 4. Isolated Polling Effect
   useEffect(() => {
     if (!torrentHash) return;
-    
+
     // We don't abort the polling requests on unmount to keep code clean, 
     // but we prevent state updates if unmounted using a flag.
     let isMounted = true;
@@ -102,7 +104,7 @@ const TorrentPageNetflix = () => {
           const data = await response.json();
           // Only update specific fields to prevent massive re-renders
           setTorrent(prev => prev ? { ...prev, ...data.torrent } : data.torrent);
-          
+
           // Optionally update file progress if your API returns it
           if (data.files) setFiles(data.files);
         }
@@ -124,7 +126,7 @@ const TorrentPageNetflix = () => {
   const { videoFiles, otherFiles, mainVideoFile } = useMemo(() => {
     const videos = [];
     const others = [];
-    
+
     files.forEach(file => {
       if (VIDEO_REGEX.test(file.name)) videos.push(file);
       else others.push(file);
@@ -166,10 +168,14 @@ const TorrentPageNetflix = () => {
 
   if (loading) {
     return (
-      <div className="netflix-page">
-        <div className="netflix-loading">
-          <div className="netflix-spinner"></div>
-          <p>Loading content...</p>
+      <div className="modern-loader-overlay">
+        <div className="loader-content">
+          <div className="glowing-rings">
+            <div className="ring ring-1"></div>
+            <div className="ring ring-2"></div>
+            <div className="ring ring-3"></div>
+          </div>
+          <p className="shimmer-text">Loading Content...</p>
         </div>
       </div>
     );
@@ -177,20 +183,24 @@ const TorrentPageNetflix = () => {
 
   if (error) {
     return (
-      <div className="netflix-page">
-        <div className="netflix-error">
-          <h2>Something went wrong</h2>
-          <p>{error}</p>
+      <div className="modern-error-overlay">
+        <div className="error-content">
+          <div className="error-icon-wrapper">
+            <svg className="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="10" strokeWidth="2"></circle>
+              <line x1="12" y1="8" x2="12" y2="12" strokeWidth="2" strokeLinecap="round"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16" strokeWidth="3" strokeLinecap="round"></line>
+            </svg>
+          </div>
+
+          <h2 className="error-title">Whoops, that's a cut.</h2>
+          <p className="error-message1">{error || "Something went wrong behind the scenes."}</p>
+
           <button
-            className="netflix-retry-btn"
-            onClick={() => {
-              setError(null);
-              setLoading(true);
-              fetchTorrentDetails();
-              fetchIMDBData();
-            }}
+            className="modern-retry-btn"
+            onClick={() => navigate('/')}
           >
-            Try Again
+            Return to Home
           </button>
         </div>
       </div>
@@ -295,76 +305,76 @@ const TorrentPageNetflix = () => {
 
       <div className="netflix-content">
         <div className="netflix-main-content">
-          
-            <div className="netflix-section">
-              <h2>Episodes</h2>
-              <div className="netflix-episodes">
-                {videoFiles.map((file, index) => {
-                  const progress = recentProgress[file.index];
-                  const progressPercentage = progress ? (progress.currentTime / progress.duration) * 100 : 0;
 
-                  return (
-                    <div
-                      key={file.index}
-                      className="netflix-episode"
-                      onClick={() => setSelectedVideo(file)}
-                    >
-                      <div className="netflix-episode-number">{index + 1}</div>
+          <div className="netflix-section">
+            <h2>Episodes</h2>
+            <div className="netflix-episodes">
+              {videoFiles.map((file, index) => {
+                const progress = recentProgress[file.index];
+                const progressPercentage = progress ? (progress.currentTime / progress.duration) * 100 : 0;
 
-                      <div className="netflix-episode-thumbnail">
-                        {imdbData?.Backdrop ? (
-                          <img src={imdbData.Backdrop} alt="Thumbnail" />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', background: '#333' }}></div>
-                        )}
-                        <div className="netflix-episode-play">
-                          <div className="netflix-episode-play-icon">
-                            <Play size={20} fill="currentColor" strokeWidth={0} />
-                          </div>
+                return (
+                  <div
+                    key={file.index}
+                    className="netflix-episode"
+                    onClick={() => setSelectedVideo(file)}
+                  >
+                    <div className="netflix-episode-number">{index + 1}</div>
+
+                    <div className="netflix-episode-thumbnail">
+                      {imdbData?.Backdrop ? (
+                        <img src={imdbData.Backdrop} alt="Thumbnail" />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', background: '#333' }}></div>
+                      )}
+                      <div className="netflix-episode-play">
+                        <div className="netflix-episode-play-icon">
+                          <Play size={20} fill="currentColor" strokeWidth={0} />
                         </div>
-                        {progress && (
-                          <div className="netflix-progress-bar">
-                            <div
-                              className="netflix-progress-fill"
-                              style={{ width: `${progressPercentage}%` }}
-                            />
-                          </div>
-                        )}
                       </div>
-
-                      <div className="netflix-episode-info">
-                        <div className="netflix-episode-header">
-                          <h4>{file.name}</h4>
-                          <span className="netflix-episode-duration">
-                            {formatFileSize(file.size)}
-                          </span>
+                      {progress && (
+                        <div className="netflix-progress-bar">
+                          <div
+                            className="netflix-progress-fill"
+                            style={{ width: `${progressPercentage}%` }}
+                          />
                         </div>
-                        <p className="netflix-episode-desc">
-                          {progress && progress.currentTime != null && progress.duration != null
-                            && `Progress: ${progressService.formatTime(progress.currentTime)} / ${progressService.formatTime(progress.duration)}`
-                            
-                          }
-                        </p>
-                      </div>
-
-                      <div className="netflix-episode-actions">
-                        <button
-                          // className="netflix-action-icon"
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevents clicking the button from also selecting the video
-                            handleDownload(e, file.index);
-                          }}
-                          title="Download"
-                        >
-                          <Download size={18} strokeWidth={2} color="#ffffff" />
-                        </button>
-                      </div>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="netflix-episode-info">
+                      <div className="netflix-episode-header">
+                        <h4>{file.name}</h4>
+                        <span className="netflix-episode-duration">
+                          {formatFileSize(file.size)}
+                        </span>
+                      </div>
+                      <p className="netflix-episode-desc">
+                        {progress && progress.currentTime != null && progress.duration != null
+                          && `Progress: ${progressService.formatTime(progress.currentTime)} / ${progressService.formatTime(progress.duration)}`
+
+                        }
+                      </p>
+                    </div>
+
+                    <div className="netflix-episode-actions">
+                      <button
+                        // className="netflix-action-icon"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevents clicking the button from also selecting the video
+                          handleDownload(e, file.index);
+                        }}
+                        title="Download"
+                      >
+                        <Download size={18} strokeWidth={2} color="#ffffff" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-         
+          </div>
+
 
           {otherFiles.length > 0 && (
             <div className="netflix-section">

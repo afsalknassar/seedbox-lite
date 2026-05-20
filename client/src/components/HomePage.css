@@ -905,3 +905,95 @@
     grid-template-columns: 1fr; /* Stack cards vertically on phones */
   }
 }
+
+/* Full screen dark overlay */
+.modern-loader-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #050505; /* Deep cinematic black */
+  z-index: 9999;
+}
+
+/* Flex layout for spinner and text */
+.loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+/* --- Concentric Ring Animation --- */
+.glowing-rings {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  filter: drop-shadow(0 0 10px rgba(229, 9, 20, 0.4)); /* Subtle red glow */
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  animation: spin linear infinite;
+}
+
+/* Outer red ring */
+.ring-1 {
+  border-top-color: #e50914; 
+  animation-duration: 1.2s;
+}
+
+/* Middle lighter red ring, spins backward */
+.ring-2 {
+  inset: 10px;
+  border-right-color: #ff4a4a;
+  animation-duration: 1.8s;
+  animation-direction: reverse;
+}
+
+/* Inner white ring */
+.ring-3 {
+  inset: 20px;
+  border-bottom-color: #ffffff;
+  animation-duration: 1s;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* --- Text Shimmer Effect --- */
+.shimmer-text {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  
+  /* Create the gradient */
+  background: linear-gradient(
+    90deg, 
+    #333333 0%, 
+    #ffffff 50%, 
+    #333333 100%
+  );
+  background-size: 200% auto;
+  
+  /* Clip background to text */
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  
+  /* Animate the gradient position */
+  animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}

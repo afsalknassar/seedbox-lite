@@ -631,9 +631,9 @@
   gap: 12px;
 }
 
-.mobile-menu-toggle {
+/* .mobile-menu-toggle {
   display: none;
-}
+} */
 
 .desktop-controls-group {
   display: flex;

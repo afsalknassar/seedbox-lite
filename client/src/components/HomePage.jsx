@@ -333,7 +333,6 @@ const HomePage = () => {
       <div className="features-grid">
         <div className="feature-card"><div className="feature-icon-box"><Upload size={20} /></div><span>Instant Streaming</span></div>
         <div className="feature-card"><div className="feature-icon-box"><HardDrive size={20} /></div><span>Progress Tracking</span></div>
-        <div className="feature-card"><div className="feature-icon-box"><Clock size={20} /></div><span>Perfect Sync</span></div>
       </div>
 
 
@@ -412,12 +411,13 @@ const HomePage = () => {
               <HardDrive size={22} />
             </div>
             <h2>Server Cache</h2>
-          </div>
-
-          <div className="header-actions-group">
             <button onClick={loadCacheStats} className="btn-glass icon-only" title="Refresh Server Data" disabled={refreshingCache}>
               <RefreshCw size={18} className={refreshingCache ? 'spin-animation' : ''} />
             </button>
+          </div>
+
+          <div className="header-actions-group">
+            
             <button onClick={() => clearOldCache(7)} className="btn-glass" title="Clear files older than 7 days">
               <Calendar size={16} />
               <span className="action-text">Clear Old</span>
@@ -471,9 +471,11 @@ const HomePage = () => {
                     <div className="card-main-info">
                       <h4 title={t.name}>{t.name}</h4>
                       <div className="card-meta">
-                        <span className="file-size">{formatBytes(t.length || 0)}</span>
+                        <span className="file-size">{formatBytes(t.size || 0)}</span>
                         <span className="dot-separator">•</span>
-                        <span className="progress-text">{percent}% Cached</span>
+                        <span className="progress-text">{formatBytes(t.downloadSpeed || 0)}/s</span>
+                         <span className="dot-separator">•</span>
+                        <span className="progress-text">{t.peers || 0} peers</span>
                       </div>
                     </div>
                     <button

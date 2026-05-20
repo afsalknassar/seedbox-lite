@@ -556,17 +556,15 @@ const loadTorrentFromId = (torrentId) => {
 
         // 1. Stop uploading
         torrent.uploadLimit = 0;
-
         // 2. Stop downloading (kills the network chatter)
         torrent.downloadLimit = 0;
 
         // 3. Forcefully disconnect from all peers 
         // The files remain in memory/disk and will stream perfectly to your video player!
-        if (torrent.discovery) {
-          torrent.discovery.stop();
+        if (!torrent.paused) {
+          torrent.pause();
         }
-        torrent.removePeer(); // Drops existing peer connections
-
+        
       });
 
       // Enhanced configuration for streaming with better buffering

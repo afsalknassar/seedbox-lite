@@ -336,13 +336,13 @@ async function fetchIMDBData(torrentName) {
     return imdbCache.get(torrentName);
   }
 
-  let { candidates, year, isLikelySeries } = generateSearchCandidates(torrentName);
+  let { candidates, year, isLikelySeries } = await generateSearchCandidates(torrentName);
 
- 
+
   if (!candidates || !candidates[0]) {
     // 3. Store the fallback results in a temporary const, then reassign the outer variables
     const fallback = cleanTorrentName(torrentName);
-    
+
     candidates = fallback.candidates;
     year = fallback.year;
     isLikelySeries = fallback.isLikelySeries;
@@ -351,6 +351,50 @@ async function fetchIMDBData(torrentName) {
   const omdbKey = process.env.OMDB_API_KEY || 'trilogy';
   const tmdbKey = process.env.TMDB_API_KEY;
   const fetchOpts = { headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' } };
+
+  // // STRATEGY 1: TorrentClaw Iterative Search
+
+  // for (const query of candidates) {
+
+  //   if (!query || query.length < 2) continue;
+
+  //   console.log(`   ➔ Asking TorrentClaw: "${query}"`);
+
+  //   // I see you added your API key to the URL. Make sure it stays here!
+  //   const tcUrl = `https://my-api-proxy.afsalknasser3.workers.dev/v1/search?q=${encodeURIComponent(query)}&limit=1&api_key=tc_65e6dbf8ad5125ccacbd82658fc3263c0c67d1ae30677fac`;
+
+  //   try {
+  //     // Pass the custom headers into the fetch request
+  //     const tcData = await fetchWithTimeout(tcUrl,fetchOpts,8000);
+
+  //     if (tcData && tcData.results && tcData.results.length > 0) {
+  //       const hit = tcData.results[0];
+  //       console.log(`✅ TorrentClaw Match Found! -> ${hit.title}`);
+
+  //       const result = {
+  //         Title: hit.title,
+  //         Year: hit.year,
+  //         imdbRating: hit.ratingImdb || hit.ratingTmdb,
+  //         Plot: hit.overview,
+  //         Poster: hit.posterUrl,
+  //         Backdrop: hit.backdropUrl,
+  //         Genre: hit.genres ? hit.genres.join(', ') : null,
+  //         imdbID: hit.imdbId,
+  //         tmdbID: hit.tmdbId,
+  //         Type: hit.contentType || 'movie',
+  //         source: 'torrentclaw'
+  //       };
+
+  //       console.log(tcData);
+
+  //       imdbCache.set(torrentName, result);
+  //       return result;
+  //     }
+  //   } catch (e) {
+  //     console.log(`   ⚠️ TorrentClaw query failed/timeout: ${e.message}`);
+  //   }
+  // }
+  // console.log(`❌ TorrentClaw exhausted. Moving to Tier 2...`);
 
   // STRATEGY 1: CONCURRENT TMDB SEARCH
 
@@ -450,17 +494,17 @@ async function fetchIMDBData(torrentName) {
   console.log(`\n❌ All API strategies exhausted.`);
   return {
     Title: candidates[0],
-    Year: year || null,
-    imdbRating: null,
-    imdbVotes: null,
+    Year: year || 2026,
+    imdbRating: 0,
+    imdbVotes: 999,
     Plot: "Metadata generation failed. Standard parsing fallback active.",
     Director: 'N/A',
     Actors: 'N/A',
-    Poster: null,
-    Backdrop: null,
-    Genre: null,
-    Runtime: null,
-    Rated: 'N/A',
+    Poster: '',
+    Backdrop: '',
+    Genre: 'Unknown',
+    Runtime: '0 min',
+    Rated: 'NR',
     imdbID: null,
     tmdbID: null,
     Type: isLikelySeries ? 'series' : 'movie',
@@ -553,7 +597,7 @@ const loadTorrentFromId = (torrentId) => {
     // 2. THE RED CARPET PROTOCOL (Fixes network starvation)
     // =================================================================
     const activeTorrents = client.torrents.filter(t => !t.paused && t.progress < 1);
-    
+
     if (activeTorrents.length > 0) {
       if (process.env.DEBUG === 'true') console.log(`🚦 Pausing ${activeTorrents.length} background torrents to fetch new metadata...`);
       activeTorrents.forEach(t => {
@@ -587,9 +631,9 @@ const loadTorrentFromId = (torrentId) => {
       torrent.on('ready', () => {
         if (resolved) return;
         resolved = true;
-        
+
         console.log(`✅ Torrent loaded: ${torrent.name}`);
-        
+
         torrents[torrent.infoHash] = torrent;
         torrentIds[torrent.infoHash] = torrentId;
         torrentNames[torrent.infoHash] = torrent.name;
@@ -636,11 +680,11 @@ const loadTorrentFromId = (torrentId) => {
         if (!resolved) {
           resolved = true;
           console.log(`⏳ Torrent slow. Moving to background queue: ${torrentId}`);
-          
+
           restoreBackgroundSpeeds(); // 🚦 Wake up on timeout
 
           const placeholderName = `Finding Peers... (${torrent.infoHash.substring(0, 8)})`;
-          
+
           torrents[torrent.infoHash] = torrent;
           torrentIds[torrent.infoHash] = torrentId;
           torrentNames[torrent.infoHash] = placeholderName;
@@ -1301,7 +1345,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
   }, 30000); // 30 seconds is plenty for setup
 
   try {
-    const torrent = await universalTorrentResolver(identifier); 
+    const torrent = await universalTorrentResolver(identifier);
 
     if (!torrent) {
       clearTimeout(setupTimeout);
@@ -1314,7 +1358,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
- 
+
     // 2. THE DEEP FREEZE (Pause everything else)
     client.torrents.forEach(t => {
       if (t.infoHash !== torrent.infoHash && !t.paused) {
@@ -1408,7 +1452,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
               t.resume();
             }
           });
-        }, 10000); 
+        }, 10000);
       });
 
       stream.on('error', (err) => {
@@ -1834,7 +1878,7 @@ function setupSystemMonitoring() {
             console.log(`   Running: ${Math.round(runningHours)}h | Progress: ${(torrent.progress * 100).toFixed(1)}%`);
 
             try {
-             
+
               // Clean our manual tracking maps
               if (typeof torrents !== 'undefined') delete torrents[identifier];
               if (typeof torrentIds !== 'undefined') delete torrentIds[identifier];
@@ -1842,7 +1886,7 @@ function setupSystemMonitoring() {
               if (typeof hashToName !== 'undefined') delete hashToName[identifier];
               if (torrent.name && typeof nameToHash !== 'undefined') delete nameToHash[torrent.name];
 
-             
+
 
               systemHealth.stalledTorrentsRestarted++;
             } catch (e) {
@@ -1889,9 +1933,9 @@ app.get('/api/system/health', (req, res) => {
   }
 });
 
-// =================================================================
+
 // 🧹 THE DEAD TORRENT SWEEPER (Auto-Cleanup)
-// =================================================================
+
 setInterval(() => {
   if (process.env.DEBUG === 'true') {
     console.log('🧹 Running Dead Torrent Sweeper...');
@@ -1932,10 +1976,9 @@ setInterval(() => {
       if (hashToName[hash]) delete hashToName[hash];
     }
   });
-}, 5 * 60 * 1000); // Runs automatically every 5 minutes
+}, 5 * 60 * 1000); //  every 5 minutes
 
 
-// GRACEFUL SHUTDOWN & ERROR HANDLING
 
 // Centralized shutdown logic
 const gracefulShutdown = (signal, exitCode = 0) => {
@@ -1946,6 +1989,7 @@ const gracefulShutdown = (signal, exitCode = 0) => {
     console.error('🚨 Cleanup took too long. Forcefully exiting.');
     process.exit(exitCode);
   }, 10000);
+
   forceExit.unref(); // Ensures this timer doesn't keep the event loop alive on its own
 
   // 2. Stop accepting new HTTP requests (Uncomment if you exported your server variable)
@@ -1967,6 +2011,7 @@ const gracefulShutdown = (signal, exitCode = 0) => {
       console.log('👋 Goodbye!');
       process.exit(exitCode);
     });
+
   } else {
     console.log('👋 Goodbye!');
     process.exit(exitCode);
@@ -2008,9 +2053,6 @@ process.on('unhandledRejection', (reason, promise) => {
     };
   }
 
-  // Note: In modern Node.js versions, unhandled rejections will eventually 
-  // crash the process anyway. It is safest to treat them like uncaught exceptions.
-  // gracefulShutdown('UNHANDLED_REJECTION', 1); 
 });
 
 // Function to disable seeding for completed torrents

@@ -90,7 +90,7 @@ app.use((req, res, next) => {
   res.on('close', logResponseTime);
 
   // Set a global timeout for all API requests 
-  res.setTimeout(65000, () => {
+  res.setTimeout(50000, () => {
     console.log(`⏱️ ⚠️ Global timeout reached for ${req.path}`);
     if (!res.headersSent) {
 
@@ -502,36 +502,18 @@ const universalTorrentResolver = (identifier) => {
 
 // ENHANCED TORRENT LOADER
 const loadTorrentFromId = (torrentId) => {
+
   return new Promise((resolve, reject) => {
     console.log(`🔄 Loading torrent: ${torrentId}`);
 
-    // If it's just a hash, construct a basic magnet link with reliable trackers
     let magnetUri = torrentId;
     if (torrentId.length === 40 && !torrentId.startsWith('magnet:')) {
-      magnetUri = `magnet:?xt=urn:btih:${torrentId}&tr=udp://tracker.opentrackr.org:1337/announce&tr=udp://open.demonii.com:1337/announce&tr=udp://tracker.openbittorrent.com:6969/announce&tr=udp://exodus.desync.com:6969/announce&tr=udp://tracker.torrent.eu.org:451/announce&tr=udp://tracker.tiny-vps.com:6969/announce&tr=udp://retracker.lanta-net.ru:2710/announce`;
-      console.log(`🧲 Constructed magnet URI from hash: ${magnetUri}`);
+      magnetUri = `magnet:?xt=urn:btih:${torrentId}&tr=udp://tracker.opentrackr.org:1337/announce&tr=udp://open.demonii.com:1337/announce&tr=udp://tracker.openbittorrent.com:6969/announce&tr=wss://tracker.btorrent.xyz`;
     }
 
-    // Define our Tracker Lists
-    const webSocketTrackers = [
-      'wss://tracker.btorrent.xyz',
-      'wss://tracker.webtorrent.io',
-      'wss://tracker.openwebtorrent.com',
-      'wss://tracker.fastcast.nz'
-    ];
+    const webSocketTrackers = ['wss://tracker.btorrent.xyz', 'wss://tracker.webtorrent.io', 'wss://tracker.openwebtorrent.com'];
+    const udpTrackers = ['udp://tracker.opentrackr.org:1337/announce', 'udp://open.demonii.com:1337/announce', 'udp://tracker.openbittorrent.com:6969/announce'];
 
-    const udpTrackers = [
-      'udp://tracker.opentrackr.org:1337/announce',
-      'udp://open.demonii.com:1337/announce',
-      'udp://tracker.openbittorrent.com:6969/announce',
-      'udp://exodus.desync.com:6969/announce',
-      'udp://tracker.torrent.eu.org:451/announce',
-      'udp://tracker.tiny-vps.com:6969/announce',
-      'udp://9.rarbg.to:2710/announce',
-      'udp://explodie.org:6969/announce'
-    ];
-
-    // Build the dynamic torrentOptions
     const torrentOptions = {
       announce: isCloud ? webSocketTrackers : [...udpTrackers, ...webSocketTrackers],
       maxWebConns: isCloud ? 5 : 30,
@@ -542,7 +524,7 @@ const loadTorrentFromId = (torrentId) => {
     };
 
     // =================================================================
-    // 🚨 THE FIX: Check if it already exists BEFORE calling client.add!
+    // 1. DUPLICATE INTERCEPTOR
     // =================================================================
     let hash = torrentId;
     if (torrentId.startsWith('magnet:')) {
@@ -553,11 +535,8 @@ const loadTorrentFromId = (torrentId) => {
     }
 
     const existingTorrent = client.get(hash);
-
     if (existingTorrent) {
-      if (process.env.DEBUG === 'true') {
-        console.log(`⚡ Torrent already in memory: ${existingTorrent.name || existingTorrent.infoHash}`);
-      }
+      if (process.env.DEBUG === 'true') console.log(`⚡ Torrent already in memory: ${existingTorrent.name || existingTorrent.infoHash}`);
       torrents[existingTorrent.infoHash] = existingTorrent;
 
       if (existingTorrent.ready || existingTorrent.metadata) {
@@ -567,72 +546,76 @@ const loadTorrentFromId = (torrentId) => {
         return;
       }
     }
-    // =================================================================
 
-    // If it is genuinely new, proceed with YOUR custom logic
     let resolved = false;
 
+    // =================================================================
+    // 2. THE RED CARPET PROTOCOL (Fixes network starvation)
+    // =================================================================
+    const activeTorrents = client.torrents.filter(t => !t.paused && t.progress < 1);
+    
+    if (activeTorrents.length > 0) {
+      if (process.env.DEBUG === 'true') console.log(`🚦 Throttling ${activeTorrents.length} background torrents to 0 B/s to fetch new metadata...`);
+      activeTorrents.forEach(t => {
+        t._savedDownloadLimit = t.downloadLimit; 
+        t.downloadLimit = 0; 
+        t.uploadLimit = 0;
+      });
+    }
+
+    const restoreBackgroundSpeeds = () => {
+      if (activeTorrents.length > 0) {
+        if (process.env.DEBUG === 'true') console.log(`🚦 Restoring background speeds...`);
+        activeTorrents.forEach(t => {
+          if (t._savedDownloadLimit !== undefined) t.downloadLimit = t._savedDownloadLimit;
+          t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024); 
+        });
+      }
+    };
+
+    // =================================================================
+    // 3. ADD AND PROCESS TORRENT
+    // =================================================================
     try {
       const torrent = client.add(magnetUri, torrentOptions);
 
-      console.log(`🎯 Added torrent to WebTorrent client: ${torrent.infoHash}`);
-
-      torrent.on('infoHash', () => {
-        console.log(`🔗 Info hash available: ${torrent.infoHash}`);
-      });
-
       torrent.on('metadata', () => {
         console.log(`📋 Metadata received for: ${torrent.name || 'Unknown'}`);
-        console.log(`📊 Files found: ${torrent.files.length}`);
+        restoreBackgroundSpeeds(); // 🚦 Wake up other downloads!
       });
 
       torrent.on('ready', () => {
         if (resolved) return;
         resolved = true;
-
-        console.log(`✅ Torrent loaded: ${torrent.name} (${torrent.infoHash})`);
-        console.log(`📊 Torrent stats: ${torrent.files.length} files, ${(torrent.length / 1024 / 1024).toFixed(1)} MB`);
-
-        // Store in ALL our tracking systems
+        
+        console.log(`✅ Torrent loaded: ${torrent.name}`);
+        
         torrents[torrent.infoHash] = torrent;
         torrentIds[torrent.infoHash] = torrentId;
         torrentNames[torrent.infoHash] = torrent.name;
         hashToName[torrent.infoHash] = torrent.name;
         nameToHash[torrent.name] = torrent.infoHash;
-
         torrent.addedAt = new Date().toISOString();
-        torrent.uploadLimit = 5000;
 
-        // Stop seeding when download is complete
         torrent.on('done', () => {
-          if (process.env.DEBUG === 'true') console.log(`✅ Download 100% complete for ${torrent.name} - Silencing network`);
           torrent.uploadLimit = 0;
           torrent.downloadLimit = 0;
-          if (!torrent.paused) {
-            torrent.pause();
-          }
+          if (!torrent.paused) torrent.pause();
         });
 
-        // Enhanced configuration for streaming with better buffering
-        torrent.files.forEach((file, index) => {
+        torrent.files.forEach((file) => {
           const ext = file.name.toLowerCase().split('.').pop();
-          const isSubtitle = ['srt', 'vtt', 'ass', 'ssa', 'sub', 'sbv'].includes(ext);
-          const isVideo = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'].includes(ext);
-
-          if (isSubtitle) {
+          if (['srt', 'vtt', 'ass'].includes(ext)) {
             file.select();
-            console.log(`📝 Subtitle file prioritized: ${file.name}`);
-          } else if (isVideo) {
+          } else if (['mp4', 'mkv', 'avi'].includes(ext)) {
             file.select();
             if (torrent.pieces && torrent.pieces.length > 0) {
               const startPiece = file._startPiece;
               const endPiece = Math.min(file._endPiece, startPiece + 10);
               torrent.select(startPiece, endPiece, 1);
             }
-            console.log(`🎬 Video file optimized for streaming: ${file.name}`);
           } else {
             file.deselect();
-            console.log(`⏭️  Skipping: ${file.name}`);
           }
         });
 
@@ -642,50 +625,40 @@ const loadTorrentFromId = (torrentId) => {
       torrent.on('error', (error) => {
         if (resolved) return;
         resolved = true;
-        console.error(`❌ Error loading torrent:`, error.message);
+        restoreBackgroundSpeeds(); // 🚦 Wake up on error
         reject(error);
       });
 
-      // Extended timeout for better peer discovery and metadata retrieval
+      // =================================================================
+      // 4. THE 30-SECOND BACKGROUND QUEUE (Fixes the Headers Sent Crash!)
+      // =================================================================
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.log(`⏰ Timeout loading torrent after 50 seconds: ${torrentId}`);
+          console.log(`⏳ Torrent slow. Moving to background queue: ${torrentId}`);
+          
+          restoreBackgroundSpeeds(); // 🚦 Wake up on timeout
 
-          const clientTorrent = client.torrents.find(t => t.infoHash === torrent.infoHash);
-          if (clientTorrent) {
-            console.log(`🔍 Found torrent in client after timeout: ${clientTorrent.name || clientTorrent.infoHash}`);
+          const placeholderName = `Finding Peers... (${torrent.infoHash.substring(0, 8)})`;
+          
+          torrents[torrent.infoHash] = torrent;
+          torrentIds[torrent.infoHash] = torrentId;
+          torrentNames[torrent.infoHash] = placeholderName;
+          hashToName[torrent.infoHash] = placeholderName;
+          torrent.addedAt = new Date().toISOString();
 
-            torrents[clientTorrent.infoHash] = clientTorrent;
-            torrentIds[clientTorrent.infoHash] = torrentId;
-            torrentNames[clientTorrent.infoHash] = clientTorrent.name || 'Loading...';
-            hashToName[clientTorrent.infoHash] = clientTorrent.name || 'Loading...';
-            if (clientTorrent.name) {
-              nameToHash[clientTorrent.name] = clientTorrent.infoHash;
-            }
-
-            clientTorrent.addedAt = new Date().toISOString();
-            clientTorrent.uploadLimit = 5000;
-
-            if (clientTorrent.files && clientTorrent.files.length) {
-              clientTorrent.files.forEach(file => {
-                const ext = file.name.toLowerCase().split('.').pop();
-                if (['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v'].includes(ext)) {
-                  file.select();
-                  file.critical = true;
-                }
-              });
-            }
-
-            resolve(clientTorrent);
-          } else {
-            console.log(`🔍 Client has ${client.torrents.length} torrents total`);
-            reject(new Error('Timeout loading torrent'));
-          }
+          // Resolve cleanly so Express sends a response BEFORE the cloud timeout
+          resolve({
+            infoHash: torrent.infoHash,
+            name: placeholderName,
+            status: 'queued',
+            isBackground: true
+          });
         }
-      }, 50000);
+      }, 30000); // CRITICAL: Must be 30000 to beat the 60s proxy timeout
 
     } catch (addError) {
+      restoreBackgroundSpeeds();
       reject(addError);
     }
   });

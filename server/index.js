@@ -555,20 +555,20 @@ const loadTorrentFromId = (torrentId) => {
     const activeTorrents = client.torrents.filter(t => !t.paused && t.progress < 1);
     
     if (activeTorrents.length > 0) {
-      if (process.env.DEBUG === 'true') console.log(`🚦 Throttling ${activeTorrents.length} background torrents to 0 B/s to fetch new metadata...`);
+      if (process.env.DEBUG === 'true') console.log(`🚦 Pausing ${activeTorrents.length} background torrents to fetch new metadata...`);
       activeTorrents.forEach(t => {
-        t._savedDownloadLimit = t.downloadLimit; 
-        t.downloadLimit = 0; 
-        t.uploadLimit = 0;
+        t.pause(); // Cleanly stops network activity
       });
     }
 
     const restoreBackgroundSpeeds = () => {
       if (activeTorrents.length > 0) {
-        if (process.env.DEBUG === 'true') console.log(`🚦 Restoring background speeds...`);
+        if (process.env.DEBUG === 'true') console.log(`🚦 Resuming background torrents...`);
         activeTorrents.forEach(t => {
-          if (t._savedDownloadLimit !== undefined) t.downloadLimit = t._savedDownloadLimit;
-          t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024); 
+          // Only resume if it actually needs to finish downloading
+          if (t.paused && t.progress < 1) {
+            t.resume();
+          }
         });
       }
     };
@@ -1320,19 +1320,12 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       if (t.infoHash !== torrent.infoHash && !t.paused) {
         if (process.env.DEBUG === 'true') console.log(`⏸️ Deep-freezing background torrent: ${t.name}`);
         t.pause(); // Soft pause the swarm
-        
-        t._originalDownloadLimit = t.downloadLimit; // Save the old speed
-        t.downloadLimit = 0;
-        t.uploadLimit = 0;
       }
     });
 
     // Now, safely resume ONLY the one we want to watch
     if (torrent.paused) {
       torrent.resume();
-      if (torrent._originalDownloadLimit !== undefined) {
-        torrent.downloadLimit = torrent._originalDownloadLimit;
-      }
     }
     file.select();
 
@@ -1400,7 +1393,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
 
       // 3. THE DEBOUNCED THAW ON CLOSE (Fixes chunk thrashing)
       req.on('close', () => {
-        
+
         stream.destroy(); // Kill the video stream for this chunk
 
         // Wait 10 seconds before resuming background downloads.
@@ -1413,12 +1406,6 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
           client.torrents.forEach(t => {
             if (t.paused && t.progress < 1) {
               t.resume();
-              if (t._originalDownloadLimit !== undefined) {
-                t.downloadLimit = t._originalDownloadLimit;
-              } else {
-                t.downloadLimit = isCloud ? (5 * 1024 * 1024) : -1;
-              }
-              t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024);
             }
           });
         }, 10000); 
@@ -1450,9 +1437,6 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
           client.torrents.forEach(t => {
             if (t.paused && t.progress < 1) {
               t.resume();
-              if (t._originalDownloadLimit !== undefined) t.downloadLimit = t._originalDownloadLimit;
-              else t.downloadLimit = isCloud ? (5 * 1024 * 1024) : -1;
-              t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024);
             }
           });
         }, 10000);

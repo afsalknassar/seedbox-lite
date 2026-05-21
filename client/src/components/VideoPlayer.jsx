@@ -18,7 +18,7 @@ const VideoPlayer = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // UI & Feature States
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
@@ -36,11 +36,11 @@ const VideoPlayer = ({
   // Buffer & Torrent Stats
   const [torrentStats, setTorrentStats] = useState({ peers: 0, downloadSpeed: 0, uploadSpeed: 0, progress: 0 });
   const [networkStatus, setNetworkStatus] = useState('connecting');
-  const [showTorrentStats, setShowTorrentStats] = useState(true);
+  const [showTorrentStats, setShowTorrentStats] = useState(false);
   const [bufferHealth, setBufferHealth] = useState(0);
   const [bufferedPercent, setBufferedPercent] = useState(0);
   const [bufferRanges, setBufferRanges] = useState([]);
-  
+
   // Subtitles
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
@@ -61,7 +61,7 @@ const VideoPlayer = ({
   useEffect(() => {
     if (!torrentHash) return;
     let isMounted = true;
-    
+
     const fetchStats = async () => {
       try {
         const response = await fetch(config.getTorrentUrl(torrentHash, 'stats'));
@@ -93,7 +93,7 @@ const VideoPlayer = ({
   const updateBufferedProgress = useCallback(() => {
     if (!videoRef.current) return;
     const video = videoRef.current;
-    
+
     if (video.buffered.length > 0 && video.duration) {
       const ranges = [];
       let maxEnd = 0;
@@ -114,10 +114,10 @@ const VideoPlayer = ({
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
-      
+
       // ❌ REMOVED: setIsLoading(false); <-- Do NOT turn off the spinner here!
       // The video hasn't actually downloaded the first visual frame yet.
-      
+
       // Auto-resume logic
       if (initialTime > 0 && !hasAppliedInitialTime) {
         video.currentTime = initialTime;
@@ -131,12 +131,12 @@ const VideoPlayer = ({
         }
         setHasAppliedInitialTime(true);
       }
-      
+
       // Try to autoplay
       video.play().catch((err) => {
         console.log('Autoplay blocked by browser:', err);
         // If autoplay is blocked, turn off the spinner so they can see the Play button
-        setIsLoading(false); 
+        setIsLoading(false);
       });
     };
 
@@ -159,14 +159,14 @@ const VideoPlayer = ({
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('timeupdate', handleTimeUpdate);
-    
+
     // ✅ NEW: Wait for the browser to say it has enough data to show a frame
-    video.addEventListener('canplay', () => setIsLoading(false)); 
-    
+    video.addEventListener('canplay', () => setIsLoading(false));
+
     video.addEventListener('waiting', () => setIsLoading(true));
-    video.addEventListener('playing', () => { 
+    video.addEventListener('playing', () => {
       setIsLoading(false); // Ensure spinner is off when playing
-      setIsPlaying(true); 
+      setIsPlaying(true);
     });
     video.addEventListener('pause', () => setIsPlaying(false));
 
@@ -219,14 +219,14 @@ const VideoPlayer = ({
   const handleTouchMove = (e) => {
     if (!videoRef.current || duration === 0) return;
     const deltaX = e.touches[0].clientX - touchRef.current.startX;
-    
+
     // Horizontal swipe threshold
     if (Math.abs(deltaX) > 30) {
       setIsScrubbing(true);
       touchRef.current.isSeeking = true;
       const seekAmount = (deltaX / window.innerWidth) * 90; // 90 seconds max sweep
       const newTime = Math.max(0, Math.min(duration, touchRef.current.initialTime + seekAmount));
-      
+
       setScrubTime(newTime);
       const diff = newTime - touchRef.current.initialTime;
       setSwipeIndicator(`${diff > 0 ? '+' : ''}${Math.round(diff)}s`);
@@ -290,7 +290,7 @@ const VideoPlayer = ({
   const displayTime = isScrubbing ? scrubTime : currentTime;
 
   return (
-    <div 
+    <div
       className={`video-player-container ${isFullscreen ? 'fullscreen' : ''}`}
       onMouseMove={() => {
         setShowControls(true);
@@ -299,184 +299,211 @@ const VideoPlayer = ({
           if (isPlaying && !isScrubbing) setShowControls(false);
         }, 3000);
       }}
-      onMouseLeave={() => !isScrubbing && isPlaying && setShowControls(false)}
+      // onMouseLeave={() => !isScrubbing && isPlaying && setShowControls(false)}
+      onClick={() => {
+        if (isLoading) return;
+        setShowControls(!showControls);
+      }}
     >
-      {onClose && (
-        <button className="video-close-button" onClick={onClose} title="Close video"><X size={24} /></button>
-      )}
-
-      <video 
-        ref={videoRef} 
-        src={src} 
-        className="video-element" 
+      <video
+        ref={videoRef}
+        src={src}
+        className="video-element"
         onDoubleClick={toggleFullscreen}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        playsInline 
-        crossOrigin="anonymous" 
+        playsInline
+        crossOrigin="anonymous"
       />
+
+      <div className="controls-gradient-top" />
+
+      {/* NEW TOP BAR: Title & Close Button are segregated here */}
+      {/* TOP BAR */}
+      <div className={`top-bar ${showControls ? 'visible' : ''}`}>
+        <div className="video-title1">{title}</div>
+
+        {/* Right Side Actions Container */}
+        <div className="top-bar-actions">
+
+          {onClose && (
+            <div className="top-action-button video-close-button" onClick={onClose} title="Close">
+              <X size={20} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* CENTERED STATS MODAL (Placed outside the top-bar) */}
+      {showTorrentStats && torrentHash && (
+        <div className="torrent-stats-centered" onClick={(e) => e.stopPropagation()}>
+          <div className="centered-stats-header">
+            <span className="centered-stats-title">
+              {networkStatus === 'connected' ? 'Network Connected' : 'Seeking Peers...'}
+            </span>
+            <button className="stats-close-btn" onClick={() => setShowTorrentStats(false)}>
+              <X size={16} />
+            </button>
+          </div>
+
+          <div className="centered-stats-row">
+            <div className="centered-stat-pill">
+              <Users size={14} />
+              <span>{torrentStats.peers} Peers</span>
+            </div>
+            <div className="centered-stat-pill">
+              <TrendingDown size={14} />
+              <span>{(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} M/s</span>
+            </div>
+            <div className="centered-stat-pill">
+              <TrendingUp size={14} />
+              <span>{(torrentStats.uploadSpeed / 1024 / 1024).toFixed(1)} M/s</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {swipeIndicator && <div className="swipe-indicator">{swipeIndicator}</div>}
 
       {isLoading && (
         <div className="video-loading">
-          <Loader2 className="loading-spinner spinning" />
-          <span>Buffering...</span>
-        </div>
-      )}
+          {/* First Row: Spinner and Text */}
+          <div className="loading-header">
+            <Loader2 className="loading-spinner spinning" size={18} />
+            <span>Buffering {Math.round(bufferHealth)}%</span>
+          </div>
 
-      {/* Buffer Health Overlay */}
-      {(isLoading || (!isPlaying && bufferHealth < 100)) && (
-        <div className={`buffer-status-overlay ${(isLoading || (!isPlaying && bufferHealth < 100)) ? 'visible' : ''}`}>
-          <div className="buffer-status-title">Video Buffer</div>
-          <div className="buffer-status-content">
-            <div className="buffer-info-row">
-              <span className="buffer-info-label">Buffer Level:</span>
-              <span className="buffer-info-value">{Math.round(bufferHealth)}%</span>
-            </div>
-            <div className="buffer-health-display">
-              <div className="buffer-health-label">Health</div>
-              <div className="buffer-health-bar">
-                <div 
-                  className={`buffer-health-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`} 
-                  style={{ width: `${Math.max(bufferHealth, 5)}%` }} 
-                />
-              </div>
-            </div>
+          {/* Second Row: Health Bar */}
+          <div className="buffer-health-bar">
+            <div
+              className={`buffer-health-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}
+              style={{ width: `${Math.max(bufferHealth, 5)}%` }}
+            />
           </div>
         </div>
       )}
 
-      {/* Torrent Stats Overlay */}
-      {showTorrentStats && torrentHash && (
-        <div className="torrent-stats-overlay">
-          <div className="stats-header">
-            <div className="network-status">
-              {networkStatus === 'connected' ? <Wifi size={16} className="status-icon connected" /> : <Activity size={16} className="status-icon seeking" />}
-              <span className={`status-text ${networkStatus}`}>{networkStatus}</span>
-            </div>
-            <button className="stats-minimize" onClick={() => setShowTorrentStats(false)}><Minimize2 size={14} /></button>
-          </div>
-          <div className="stats-grid">
-            <div className="stat-item"><Users size={14} /><span className="stat-value">{torrentStats.peers}</span></div>
-            <div className="stat-item"><TrendingDown size={14} /><span className="stat-value">{(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} MB/s</span></div>
-            <div className="stat-item"><TrendingUp size={14} /><span className="stat-value">{(torrentStats.uploadSpeed / 1024 / 1024).toFixed(1)} MB/s</span></div>
-          </div>
-        </div>
-      )}
 
-      {!showTorrentStats && torrentHash && (
-        <button className="stats-show-button" onClick={() => setShowTorrentStats(true)}><Activity size={16} /></button>
-      )}
 
-      <div className={`video-controls ${showControls ? 'visible' : 'hidden'}`}>
-        <div className="controls-background" />
+      {/* FLOATING CONTROL PILL */}
+      <div className={`video-controls ${showControls ? 'visible' : ''}`} onClick={(e) => e.stopPropagation()}>
 
-        {/* Safe Scrubbing Progress Bar */}
-        <div 
-          className="progress-container" 
+        {/* Progress Bar moved to the top of the pill */}
+        <div
+          className="progress-container"
           onMouseDown={handleSeekStart}
           onMouseMove={handleSeekMove}
           onMouseUp={handleSeekEnd}
           onMouseLeave={handleSeekEnd}
         >
           <div className="progress-bar">
-            {/* Render Multiple Buffered Ranges visually */}
             {bufferRanges.map((range, i) => (
-              <div 
-                key={i} 
-                className="progress-buffered-range" 
+              <div
+                key={i}
+                className="progress-buffered-range"
                 style={{
                   left: `${(range.start / duration) * 100}%`,
                   width: `${((range.end - range.start) / duration) * 100}%`
-                }} 
+                }}
               />
             ))}
-            
             <div className="progress-played" style={{ width: `${(displayTime / duration) * 100}%` }} />
             <div className="progress-thumb" style={{ left: `${(displayTime / duration) * 100}%` }} />
-            
             {torrentStats.progress > 0 && (
               <div className="progress-torrent" style={{ width: `${torrentStats.progress}%` }} />
             )}
           </div>
         </div>
 
+        {/* Buttons Container */}
         <div className="controls-main">
           <div className="controls-left">
-            <button onClick={togglePlay} className="control-button">
-              {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+            <button onClick={togglePlay} className="control-button play-button" disabled={isLoading}>
+              {isPlaying ? <Pause size={22} /> : <Play size={22} fill="currentColor" />}
             </button>
-            <button onClick={() => skip(-10)} className="control-button"><SkipBack size={20} /></button>
-            <button onClick={() => skip(10)} className="control-button"><SkipForward size={20} /></button>
-            
-            {/* Volume Control Restored */}
-            <div className="volume-control">
+            <button onClick={() => skip(-10)} className="control-button hide-on-mobile"><SkipBack size={18} /></button>
+            <button onClick={() => skip(10)} className="control-button hide-on-mobile"><SkipForward size={18} /></button>
+
+            <div className="volume-control hide-on-mobile">
               <button onClick={toggleMute} className="control-button">
-                {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
               </button>
               <input type="range" min="0" max="1" step="0.1" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="volume-slider" />
             </div>
 
             <div className="time-display">{formatTime(displayTime)} / {formatTime(duration)}</div>
           </div>
-          
-          <div className="controls-center">
-            <div className="video-title">{title}</div>
-          </div>
 
           <div className="controls-right">
-            {/* Subtitles Toggle Restored */}
+
+            {/* Torrent stats */}
+            <div className="subtitle-menu">
+              {torrentHash && (
+                <button className="control-button" onClick={() => setShowTorrentStats(!showTorrentStats)}><Activity size={14} /></button>
+              )}
+            </div>
+            {/* Subtitles Menu */}
             <div className="subtitle-menu">
               <button onClick={() => setShowSubtitleMenu(!showSubtitleMenu)} className={`control-button ${subtitlesEnabled ? 'active' : ''}`}>
-                <Subtitles size={20} />
+                <Subtitles size={18} />
               </button>
               {showSubtitleMenu && (
                 <div className="subtitle-dropdown">
                   <div className="subtitle-section">
-                    <span>Options (API Coming Soon)</span>
-                    <button className="subtitle-option" onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}>
-                      <Languages size={16} /> {subtitlesEnabled ? 'Disable' : 'Enable'} Subtitles
+                    <span>Subtitles</span>
+                    <button className={`subtitle-option ${subtitlesEnabled ? 'active' : ''}`} onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}>
+                      {subtitlesEnabled ? 'Disable' : 'Enable'} Subtitles
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Settings & Speed Control Restored */}
+            {/* Settings Menu */}
             <div className="settings-menu">
               <button onClick={() => setShowSettings(!showSettings)} className="control-button">
-                <Settings size={20} />
+                <Settings size={18} />
               </button>
               {showSettings && (
                 <div className="settings-dropdown">
-                  <div className="settings-section">
-                    <span>Playback Speed</span>
-                    {[0.5, 1, 1.25, 1.5, 2].map(rate => (
-                      <button key={rate} onClick={() => changePlaybackRate(rate)} className={`settings-option ${playbackRate === rate ? 'active' : ''}`}>
-                        {rate}x
+                  <div className="settings-section1">
+                    <span>Speed</span>
+                    {[0.5, 1, 1.25, 1.5, 2].map(r => (
+                      <button
+                        key={r}
+                        onClick={() => changePlaybackRate(r)}
+                        className={`settings-option ${playbackRate === r ? 'active' : ''}`}
+                      >
+                        {r === 1 ? 'Normal' : `${r}x`}
                       </button>
                     ))}
+                  </div>
+
+                  <div className="settings-section1 mobile-only-settings">
+                    <span>Audio</span>
+                    <button className="settings-option" onClick={toggleMute}>
+                      {isMuted || volume === 0 ? 'Unmute' : 'Mute'}
+                    </button>
                   </div>
                 </div>
               )}
             </div>
 
-            <a href={src} download className="control-button download-button" title="Download video"><Download size={20} /></a>
-            <button onClick={toggleFullscreen} className="control-button"><Maximize size={20} /></button>
+            <a href={src} download className="control-button " title="Download"><Download size={18} /></a>
+            <button onClick={toggleFullscreen} className="control-button"><Maximize size={18} /></button>
           </div>
         </div>
       </div>
 
       {/* Resume Dialog */}
       {showResumeDialog && resumeData && (
-        <div className="resume-dialog-overlay">
+        <div className="resume-dialog-overlay" onClick={(e) => e.stopPropagation()}>
           <div className="resume-dialog">
-            <h3>Resume Video</h3>
-            <p>Continue from {formatTime(resumeData.currentTime)}?</p>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Resume Playback?</h3>
+            <p style={{ margin: '0 0 16px 0', color: '#a1a1aa', fontSize: '14px' }}>Continue from {formatTime(resumeData.currentTime)}</p>
             <div className="resume-actions">
-              <button onClick={() => { videoRef.current.currentTime = 0; setShowResumeDialog(false); }} className="resume-button secondary">Start Over</button>
+              <button onClick={() => { videoRef.current.currentTime = 0; setShowResumeDialog(false); }} className="resume-button secondary">Restart</button>
               <button onClick={() => { videoRef.current.currentTime = resumeData.currentTime; setShowResumeDialog(false); }} className="resume-button primary">Resume</button>
             </div>
           </div>

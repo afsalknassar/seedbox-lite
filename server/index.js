@@ -1521,49 +1521,79 @@ app.get('/api/torrents/:identifier/files/:fileIdx/download', async (req, res) =>
       return res.status(404).json({ error: 'File not found' });
     }
 
-    // Ensure torrent is active and file is selected
-    torrent.resume();
+    // 1. Wake up the torrent if it was deep-frozen
+    if (torrent.paused) {
+      torrent.resume();
+    }
+    
+    // 2. Explicitly prioritize this file to the swarm
     file.select();
 
     console.log(`📥 Downloading: ${file.name} (${(file.length / 1024 / 1024).toFixed(1)} MB)`);
 
-    // Set download headers
-    const filename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Length', file.length);
-    res.setHeader('Accept-Ranges', 'bytes');
+    // 3. Clean up the filename and encode it safely to prevent HTTP Header Injection attacks
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const encodedFilename = encodeURIComponent(safeFilename);
 
-    // Handle range requests for resume capability
+    // 4. Calculate Ranges for IDM (Internet Download Manager) and pause/resume support
     const range = req.headers.range;
+    let start = 0;
+    let end = file.length - 1;
+    let statusCode = 200;
+
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : file.length - 1;
-      const chunkSize = (end - start) + 1;
-
-      res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${file.length}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunkSize,
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Type': 'application/octet-stream'
-      });
-
-      const stream = file.createReadStream({ start, end });
-      stream.pipe(res);
-    } else {
-      res.writeHead(200, {
-        'Content-Length': file.length,
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Type': 'application/octet-stream'
-      });
-      file.createReadStream().pipe(res);
+      start = parseInt(parts[0], 10);
+      end = parts[1] ? parseInt(parts[1], 10) : file.length - 1;
+      statusCode = 206; // Partial Content
+      
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${file.length}`);
     }
+
+    const chunkSize = (end - start) + 1;
+
+    // 5. Write headers once, cleanly
+    res.writeHead(statusCode, {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': chunkSize,
+      'Content-Disposition': `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
+      'Accept-Ranges': 'bytes'
+    });
+
+    // 6. Create the optimized stream
+    const stream = file.createReadStream({ start, end });
+
+    // =================================================================
+    // 🛡️ CRITICAL STABILITY & MEMORY FIXES
+    // =================================================================
+    
+    // Catch mid-download cancellations so they don't crash the Node server
+    stream.on('error', (err) => {
+      if (err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.message.includes('prematurely')) {
+        if (process.env.DEBUG === 'true') console.log(`🛑 Download cancelled by user for: ${file.name}`);
+      } else {
+        console.error(`❌ Download stream error for ${file.name}:`, err.message);
+      }
+    });
+
+    // If the user closes the browser or cancels the download, instantly destroy the stream
+    // This frees up the server's RAM and network sockets immediately!
+    req.on('close', () => {
+      if (!stream.destroyed) {
+        stream.destroy();
+      }
+    });
+
+    // 7. Blast the data to the browser
+    stream.pipe(res);
 
   } catch (error) {
     console.error(`❌ Universal download failed:`, error.message);
-    res.status(500).json({ error: 'Download failed: ' + error.message });
+    
+    // Safety check: Only send a 500 error if we haven't already started sending the file
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Download failed: ' + error.message });
+    }
   }
 });
 

@@ -90,7 +90,7 @@ app.use((req, res, next) => {
   res.on('close', logResponseTime);
 
   // Set a global timeout for all API requests 
-  res.setTimeout(10000, () => {
+  res.setTimeout(65000, () => {
     console.log(`⏱️ ⚠️ Global timeout reached for ${req.path}`);
     if (!res.headersSent) {
 

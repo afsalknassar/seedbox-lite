@@ -1272,6 +1272,9 @@ app.get('/api/torrents/:identifier/imdb', async (req, res) => {
 });
 
 // UNIVERSAL STREAMING - Enhanced for production environments
+let streamThawTimeout = null;
+
+
 app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
 
   const { identifier, fileIdx } = req.params;
@@ -1279,6 +1282,15 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
   const streamRequestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   if (debugLevel) console.log(`🎬 UNIVERSAL STREAM: ${identifier}/${fileIdx}`);
+
+  // 1. CANCEL ANY PENDING THAW
+  // A new chunk request just came in, so the user is still watching.
+  // This prevents the debounce from waking up torrents while user is actively watching
+  if (streamThawTimeout) {
+    clearTimeout(streamThawTimeout);
+    streamThawTimeout = null;
+    if (debugLevel) console.log(`🔄 New chunk requested. Background torrents remaining frozen.`);
+  }
 
   // Set a timeout strictly for the SETUP phase (finding metadata)
   const setupTimeout = setTimeout(() => {
@@ -1289,7 +1301,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
   }, 30000); // 30 seconds is plenty for setup
 
   try {
-    const torrent = await universalTorrentResolver(identifier); // assuming this handles its own async correctly
+    const torrent = await universalTorrentResolver(identifier); 
 
     if (!torrent) {
       clearTimeout(setupTimeout);
@@ -1302,26 +1314,22 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
+ 
+    // 2. THE DEEP FREEZE (Pause everything else)
     client.torrents.forEach(t => {
-
       if (t.infoHash !== torrent.infoHash && !t.paused) {
-
         if (process.env.DEBUG === 'true') console.log(`⏸️ Deep-freezing background torrent: ${t.name}`);
-
         t.pause(); // Soft pause the swarm
-
-        // 🚨 THE DEEP FREEZE: Forcefully stop "in-flight" pieces and chatter
-        t._originalDownloadLimit = t.downloadLimit; // Save the old speed so we can restore it later
+        
+        t._originalDownloadLimit = t.downloadLimit; // Save the old speed
         t.downloadLimit = 0;
         t.uploadLimit = 0;
       }
-
     });
 
     // Now, safely resume ONLY the one we want to watch
     if (torrent.paused) {
       torrent.resume();
-      // Restore its speed if it was deep-frozen previously
       if (torrent._originalDownloadLimit !== undefined) {
         torrent.downloadLimit = torrent._originalDownloadLimit;
       }
@@ -1348,17 +1356,15 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
 
-      // Safari often sends "bytes=0-1" to test range support. Respect the requested end if provided.
+      // Safari often sends "bytes=0-1" to test range support
       let end = parts[1] ? parseInt(parts[1], 10) : null;
 
       // Smart Chunking logic to prevent RAM exhaustion
       if (end === null) {
         if (start === 0) {
-          // Initial load: 4MB chunk
-          end = Math.min(start + (4 * 1024 * 1024), file.length - 1);
+          end = Math.min(start + (4 * 1024 * 1024), file.length - 1); // 4MB initial
         } else {
-          // Scrubbing/Seeking: 8MB chunk for smoother buffering
-          end = Math.min(start + (8 * 1024 * 1024), file.length - 1);
+          end = Math.min(start + (8 * 1024 * 1024), file.length - 1); // 8MB seeking
         }
       }
 
@@ -1370,10 +1376,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       const endPiece = Math.ceil((file.offset + end) / pieceLength);
 
       try {
-        // High priority for the immediate pieces needed
         torrent.select(startPiece, endPiece, 1);
-
-        // Critical priority for the very first piece to start playback instantly
         if (typeof torrent.critical === 'function') {
           torrent.critical(startPiece, startPiece + 2);
         }
@@ -1395,32 +1398,30 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
 
       const stream = file.createReadStream({ start, end });
 
-      // CRITICAL LEAK FIX: Destroy WebTorrent stream when client disconnects (scrubbing/closing)
+      // 3. THE DEBOUNCED THAW ON CLOSE (Fixes chunk thrashing)
       req.on('close', () => {
-        stream.destroy(); // Kill the video stream
+        
+        stream.destroy(); // Kill the video stream for this chunk
 
-        if (process.env.DEBUG === 'true') {
-          console.log('🛑 Video stream closed. Waking up background torrents...');
-        }
-
-        // Loop through all torrents and wake them up
-        client.torrents.forEach(t => {
-          // Only resume if it is paused AND it is not 100% finished downloading
-          if (t.paused && t.progress < 1) {
-            t.resume();
-
-            // 🚨 THE THAW: Restore the bandwidth limits we dropped to 0
-            if (t._originalDownloadLimit !== undefined) {
-              t.downloadLimit = t._originalDownloadLimit;
-            } else {
-              // Fallback just in case it wasn't saved (Assuming 5MB/s cloud limit)
-              t.downloadLimit = isCloud ? (5 * 1024 * 1024) : -1;
-            }
-
-            // Restore reciprocity upload
-            t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024);
+        // Wait 10 seconds before resuming background downloads.
+        // If the player asks for the next chunk, this gets cancelled at the top!
+        streamThawTimeout = setTimeout(() => {
+          if (process.env.DEBUG === 'true') {
+            console.log('🛑 Stream fully closed (no requests for 10s). Waking up background torrents...');
           }
-        });
+
+          client.torrents.forEach(t => {
+            if (t.paused && t.progress < 1) {
+              t.resume();
+              if (t._originalDownloadLimit !== undefined) {
+                t.downloadLimit = t._originalDownloadLimit;
+              } else {
+                t.downloadLimit = isCloud ? (5 * 1024 * 1024) : -1;
+              }
+              t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024);
+            }
+          });
+        }, 10000); 
       });
 
       stream.on('error', (err) => {
@@ -1432,7 +1433,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       stream.pipe(res);
 
     } else {
-      // Handle full file request (Usually only happens if you download the file directly, not streaming)
+      // Handle full file request (direct downloads)
       res.writeHead(200, {
         'Content-Length': file.length,
         'Content-Type': contentType,
@@ -1442,7 +1443,21 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
 
       const stream = file.createReadStream();
 
-      req.on('close', () => stream.destroy());
+      // Apply the same debounce thaw to non-range requests just in case they drop out
+      req.on('close', () => {
+        stream.destroy();
+        streamThawTimeout = setTimeout(() => {
+          client.torrents.forEach(t => {
+            if (t.paused && t.progress < 1) {
+              t.resume();
+              if (t._originalDownloadLimit !== undefined) t.downloadLimit = t._originalDownloadLimit;
+              else t.downloadLimit = isCloud ? (5 * 1024 * 1024) : -1;
+              t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024);
+            }
+          });
+        }, 10000);
+      });
+
       stream.on('error', (err) => {
         stream.destroy();
         if (!res.headersSent) res.status(500).end();

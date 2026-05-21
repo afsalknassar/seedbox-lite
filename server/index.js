@@ -116,8 +116,8 @@ const client = new WebTorrent({
 
   // Bandwidth Limits
   uploadLimit: isProduction ? config.production.network.defaultUploadLimit : 10000,
-  // CRITICAL: Cap downloads in the cloud (e.g., 5MB/s) to avoid triggering DDoS filters
-  downloadLimit: isCloud ? (5 * 1024 * 1024) : -1,
+  // CRITICAL: Cap downloads in the cloud (e.g., 10MB/s) to avoid triggering DDoS filters
+  downloadLimit: isCloud ? (10 * 1024 * 1024) : -1,
 
   // Connections: Severely restrict in cloud to prevent socket exhaustion (ulimit crashes)
   maxConns: isCloud ? 30 : (isProduction ? config.production.network.maxConns : 150),
@@ -517,7 +517,7 @@ const loadTorrentFromId = (torrentId) => {
     const torrentOptions = {
       announce: isCloud ? webSocketTrackers : [...udpTrackers, ...webSocketTrackers],
       maxWebConns: isCloud ? 5 : 30,
-      downloadLimit: isCloud ? (5 * 1024 * 1024) : -1,
+      downloadLimit: isCloud ? (10 * 1024 * 1024) : -1,
       uploadLimit: isCloud ? (50 * 1024) : (5 * 1024 * 1024),
       path: './downloads',
       private: false

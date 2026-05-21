@@ -445,7 +445,7 @@ const HomePage = () => {
           )}
 
           <div className="history-grid">
-            {(showHistory ? filteredTorrents : filteredTorrents.slice(0, 4)).map((torrent) => (
+            {(showHistory ? filteredTorrents : filteredTorrents.slice(0, 2)).map((torrent) => (
               <div
                 key={torrent.infoHash}
                 className="history-card"
@@ -516,7 +516,7 @@ const HomePage = () => {
           filteredCacheTorrents.length > 0 ? (
             <>
               <div className="modern-cache-grid">
-                {(showAllCache ? filteredCacheTorrents : filteredCacheTorrents.slice(0, 4)).map((t) => {
+                {(showAllCache ? filteredCacheTorrents : filteredCacheTorrents.slice(0, 2)).map((t) => {
                   const percent = t.progress ? (t.progress * 100).toFixed(1) : 0;
                   return (
                     <div key={t.infoHash} className="modern-cache-card" onClick={() => goToTorrent(t.infoHash)}>

@@ -350,6 +350,7 @@ async function fetchIMDBData(torrentName) {
 
   const omdbKey = process.env.OMDB_API_KEY || 'trilogy';
   const tmdbKey = process.env.TMDB_API_KEY;
+  const tcKey = process.env.TC_API_KEY;
   const fetchOpts = { headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' } };
 
   // STRATEGY 1: TorrentClaw Iterative Search
@@ -361,7 +362,7 @@ async function fetchIMDBData(torrentName) {
     console.log(`   ➔ Asking TorrentClaw: "${query}"`);
 
     // I see you added your API key to the URL. Make sure it stays here!
-    const tcUrl = `https://my-api-proxy.afsalknasser3.workers.dev/v1/search?q=${encodeURIComponent(query)}&limit=1&api_key=tc_65e6dbf8ad5125ccacbd82658fc3263c0c67d1ae30677fac`;
+    const tcUrl = `https://my-api-proxy.afsalknasser3.workers.dev/v1/search?q=${encodeURIComponent(query)}&limit=1&api_key=${tcKey}`;
 
     try {
       // Pass the custom headers into the fetch request

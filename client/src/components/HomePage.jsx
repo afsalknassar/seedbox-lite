@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Link as LinkIcon, Download, Leaf, Clock, Search, Trash2, HardDrive, Play, Activity, File, Calendar, RefreshCw } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { config } from '../config/environment';
@@ -29,8 +29,81 @@ const HomePage = () => {
   const [refreshingCache, setRefreshingCache] = useState(false);
 
   useEffect(() => {
+    // Load immediately on mount
     loadRecentTorrents();
     loadCacheStats();
+
+    // Reload immediately when the user switches back to this tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadRecentTorrents();
+        loadCacheStats();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Track active downloads
+  const activeDownloadsRef = useRef(false);
+  useEffect(() => {
+    // Safely check if there are any torrents before calling .some()
+    if (cacheStats?.torrents) {
+      activeDownloadsRef.current = cacheStats.torrents.some(t => (t.progress || 0) < 1);
+    }
+  }, [cacheStats.torrents]);
+
+  // Isolated Polling Effect for Cache Torrents
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId = null;
+
+    const fetchProgress = async () => {
+      // If no active downloads, pause polling, but re-check in 2s
+      if (!activeDownloadsRef.current) {
+        if (isMounted) timeoutId = setTimeout(fetchProgress, 2000);
+        return;
+      }
+
+      try {
+        const [statsResponse, torrentsResponse] = await Promise.all([
+          fetch(config.getApiUrl('/api/cache/stats')),
+          fetch(config.api.torrents)
+        ]);
+
+        if (statsResponse.ok && torrentsResponse.ok && isMounted) {
+          const stats = await statsResponse.json();
+          const torrentsData = await torrentsResponse.json();
+
+          setCacheStats(prev => ({
+            ...prev,
+            ...stats,
+            torrents: torrentsData.torrents || [],
+            activeTorrents: (torrentsData.torrents || []).length
+          }));
+        }
+      } catch (err) {
+        console.debug('Cache Polling error:', err);
+      } finally {
+        // Schedule the next request ONLY after this one completes (success or fail)
+        if (isMounted) {
+          timeoutId = setTimeout(fetchProgress, 2000);
+        }
+      }
+    };
+
+    // Start the loop
+    fetchProgress();
+
+    // Cleanup on unmount
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   useEffect(() => {
@@ -311,9 +384,15 @@ const HomePage = () => {
     ? torrentHistoryService.searchTorrents(searchQuery)
     : recentTorrents;
 
-  const filteredCacheTorrents = cacheSearchQuery
+  const filteredCacheTorrents = [...(cacheSearchQuery
     ? cacheStats.torrents.filter(t => t.name.toLowerCase().includes(cacheSearchQuery.toLowerCase()))
-    : cacheStats.torrents;
+    : cacheStats.torrents)].sort((a, b) => {
+      const aComplete = a.progress === 1;
+      const bComplete = b.progress === 1;
+      if (aComplete && !bComplete) return 1;
+      if (!aComplete && bComplete) return -1;
+      return (b.progress || 0) - (a.progress || 0);
+    });
 
   return (
     <div className="home-container">
@@ -369,80 +448,42 @@ const HomePage = () => {
         </div>
       </div>
 
-      <div className="modern-stats-grid">
-        <div className="glass-stat-card">
-          <div className="stat-icon-wrapper blue">
-            <Activity size={20} />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Cache Size</span>
-            <span className="stat-value">{cacheStats.totalSizeFormatted}</span>
-          </div>
-        </div>
-        <div className="glass-stat-card">
-          <div className="stat-icon-wrapper purple">
-            <Download size={20} />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Downloaded</span>
-            <span className="stat-value">{cacheStats.downloadedBytes}</span>
-          </div>
-        </div>
-        <div className="glass-stat-card">
-          <div className="stat-icon-wrapper green">
-            <Play size={20} />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Active Items</span>
-            <span className="stat-value">{cacheStats.activeTorrents}</span>
-          </div>
-        </div>
-        <div className="glass-stat-card">
-          <div className="stat-icon-wrapper blue">
-            <Activity size={20} />
-          </div>
-          <div className="stat-content">
-            <span className="stat-label">Limit</span>
-            <span className="stat-value">{cacheStats.cacheLimitFormatted}</span>
-          </div>
-        </div>
-      </div>
-
-
-
 
       {/* History Section */}
-      {filteredTorrents.length > 0 && (
-        <div className="history-section mt-4">
-          <div className="history-header">
-            <div className="history-title">
-              <Clock size={22} />
-              <h2>Recent Torrents</h2>
-            </div>
-            <div className="history-actions">
-              <button onClick={() => setShowHistory(!showHistory)} className="btn-secondary">
-                {showHistory ? 'Show Less' : `View All (${filteredTorrents.length})`}
-              </button>
-              {showHistory && (
-                <button onClick={clearAllHistory} className="btn-danger">
-                  <Trash2 size={16} />
-                  <span className="desktop-only">Clear</span>
-                </button>
-              )}
-            </div>
-          </div>
 
-          {showHistory && (
-            <div className="history-search">
-              <Search size={18} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search history..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          )}
+      <div className="history-section mt-4">
+        <div className="history-header">
+          <div className="history-title">
+            <Clock size={22} />
+            <h2>Recent Torrents</h2>
+          </div>
+          <div className="history-actions">
+            {showHistory && filteredTorrents.length > 0 && (
+              <button onClick={clearAllHistory} className="btn-danger">
+                <Trash2 size={16} />
+                <span className="desktop-only">Clear</span>
+              </button>
+            )}
+            <button onClick={() => setShowHistory(!showHistory)} className="btn-secondary">
+              {showHistory ? 'Show Less' : `View All (${filteredTorrents.length})`}
+            </button>
+
+          </div>
+        </div>
+
+        {filteredTorrents.length > 0 && showHistory && (
+          <div className="history-search">
+            <Search size={18} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search history..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        )}
+
+        {filteredTorrents.length > 0 ? (
 
           <div className="history-grid">
             {(showHistory ? filteredTorrents : filteredTorrents.slice(0, 2)).map((torrent) => (
@@ -451,6 +492,22 @@ const HomePage = () => {
                 className="history-card"
                 onClick={() => goToTorrent(torrent.infoHash)}
               >
+                {/* 1. NEW POSTER WRAPPER: Placed outside of card-content */}
+                <div className="card-poster">
+                  {torrent.poster && torrent.poster !== 'N/A' ? (
+                    <img
+                      src={torrent.poster}
+                      alt={torrent.name}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="poster-placeholder">
+                      <span>No Img</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. TEXT CONTENT: Flexes to fill the middle space */}
                 <div className="card-content">
                   <h3 title={torrent.name}>{torrent.name}</h3>
                   <p className="source-text" title={torrent.originalInput}>
@@ -461,9 +518,14 @@ const HomePage = () => {
                     <span className="date">{new Date(torrent.addedAt).toLocaleDateString()}</span>
                   </div>
                 </div>
+
+                {/* 3. ACTION BUTTON: Stop propagation prevents opening the torrent when clicking delete */}
                 <button
                   className="btn-remove"
-                  onClick={(e) => removeTorrentFromHistory(torrent.infoHash, e)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeTorrentFromHistory(torrent.infoHash, e);
+                  }}
                   title="Remove from history"
                 >
                   <Trash2 size={16} />
@@ -471,8 +533,17 @@ const HomePage = () => {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="empty-glass-state">
+            <div className="empty-icon-wrapper">
+              <Clock size={42} />
+            </div>
+            <h2>No History Yet</h2>
+            <p>Start by adding a torrent to see it here.</p>
+          </div>
+        )}
+      </div>
+
 
       {/* SERVER FILES & CACHE UI */}
 
@@ -516,21 +587,46 @@ const HomePage = () => {
           filteredCacheTorrents.length > 0 ? (
             <>
               <div className="modern-cache-grid">
-                {(showAllCache ? filteredCacheTorrents : filteredCacheTorrents.slice(0, 2)).map((t) => {
+                {(showAllCache ? filteredCacheTorrents : filteredCacheTorrents.slice(0, 5)).map((t) => {
+
+                  const historyItem = torrentHistoryService.getTorrentByInfoHash(t.infoHash);
+                  const posterUrl = historyItem?.poster; // Safely extract the poster if it exists
+
                   const percent = t.progress ? (t.progress * 100).toFixed(1) : 0;
                   return (
                     <div key={t.infoHash} className="modern-cache-card" onClick={() => goToTorrent(t.infoHash)}>
                       <div className="card-top-row">
+
+                        {/* 1. REUSED POSTER WRAPPER */}
+                        <div className="card-poster">
+                          {posterUrl && posterUrl !== 'N/A' ? (
+                            <img
+                              src={posterUrl}
+                              alt={t.name}
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="poster-placeholder">
+                              <span>No Img</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 2. MAIN INFO (Flexes to fill middle space) */}
                         <div className="card-main-info">
                           <h4 title={t.name}>{t.name}</h4>
-                          <div className="card-meta">
-                            <span className="file-size">{formatBytes(t.size || 0)}</span>
-                            <span className="dot-separator">•</span>
+                          
+                          <div className="card-meta1 ">
                             <span className="progress-text">{formatBytes(t.downloadSpeed || 0)}/s</span>
                             <span className="dot-separator">•</span>
                             <span className="progress-text">{t.peers || 0} peers</span>
                           </div>
+                          <div className="card-meta">
+                            <span className="total-text">{formatBytes(t.size || 0)}</span>
+                          </div>
                         </div>
+
+                        {/* 3. DELETE BUTTON */}
                         <button
                           className="btn-remove"
                           onClick={(e) => { e.stopPropagation(); clearSingleTorrent(t.infoHash, t.name); }}
@@ -540,7 +636,7 @@ const HomePage = () => {
                         </button>
                       </div>
 
-                      {/* Visual Progress Bar */}
+                      {/* Visual Progress Bar (Stays on bottom) */}
                       <div className="progress-bar-container">
                         <div className="progress-bar-fill" style={{ width: `${percent}%` }}></div>
                       </div>

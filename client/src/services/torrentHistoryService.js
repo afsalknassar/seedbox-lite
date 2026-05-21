@@ -20,20 +20,39 @@ class TorrentHistoryService {
 
       // Remove if already exists (to update position)
       const filteredHistory = history.filter(t => t.infoHash !== torrentEntry.infoHash);
-      
+
       // Add to beginning of list
       const newHistory = [torrentEntry, ...filteredHistory];
-      
+
       // Keep only last 50 torrents
       const trimmedHistory = newHistory.slice(0, 50);
-      
+
       localStorage.setItem(this.storageKey, JSON.stringify(trimmedHistory));
       console.log(`📝 Added torrent to history: ${torrentEntry.name}`);
-      
+
       return torrentEntry;
     } catch (error) {
       console.error('Error adding torrent to history:', error);
       return null;
+    }
+  }
+
+  // Update poster URL for a specific torrent
+  updatePoster(infoHash, posterUrl) {
+    if (!posterUrl || posterUrl === 'N/A') return;
+
+    try {
+      const history = this.getHistory();
+      const torrentIndex = history.findIndex(t => t.infoHash === infoHash);
+
+      // Only update if the torrent exists in history and the poster is actually new/different
+      if (torrentIndex !== -1 && history[torrentIndex].poster !== posterUrl) {
+        history[torrentIndex].poster = posterUrl;
+        localStorage.setItem(this.storageKey, JSON.stringify(history));
+        console.log(`🖼️ Updated poster in history for: ${infoHash}`);
+      }
+    } catch (error) {
+      console.error('Error updating poster:', error);
     }
   }
 
@@ -53,7 +72,7 @@ class TorrentHistoryService {
     try {
       const history = this.getHistory();
       const torrentIndex = history.findIndex(t => t.infoHash === infoHash);
-      
+
       if (torrentIndex !== -1) {
         history[torrentIndex].lastAccessed = new Date().toISOString();
         localStorage.setItem(this.storageKey, JSON.stringify(history));
@@ -96,7 +115,7 @@ class TorrentHistoryService {
   searchTorrents(query) {
     const history = this.getHistory();
     const lowerQuery = query.toLowerCase();
-    return history.filter(torrent => 
+    return history.filter(torrent =>
       torrent.name.toLowerCase().includes(lowerQuery) ||
       torrent.originalInput.toLowerCase().includes(lowerQuery)
     );

@@ -353,49 +353,49 @@ async function fetchIMDBData(torrentName) {
   const tcKey = process.env.TC_API_KEY;
   const fetchOpts = { headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' } };
 
-  // STRATEGY 1: TorrentClaw Iterative Search
+  // // STRATEGY 1: TorrentClaw Iterative Search
 
-  for (const query of candidates) {
+  // for (const query of candidates) {
 
-    if (!query || query.length < 2) continue;
+  //   if (!query || query.length < 2) continue;
 
-    console.log(`   ➔ Asking TorrentClaw: "${query}"`);
+  //   console.log(`   ➔ Asking TorrentClaw: "${query}"`);
 
-    // I see you added your API key to the URL. Make sure it stays here!
-    const tcUrl = `https://my-api-proxy.afsalknasser3.workers.dev/v1/search?q=${encodeURIComponent(query)}&limit=1&api_key=${tcKey}`;
+  //   // I see you added your API key to the URL. Make sure it stays here!
+  //   const tcUrl = `https://my-api-proxy.afsalknasser3.workers.dev/v1/search?q=${encodeURIComponent(query)}&limit=1&api_key=${tcKey}`;
 
-    try {
-      // Pass the custom headers into the fetch request
-      const tcData = await fetchWithTimeout(tcUrl,fetchOpts,8000);
+  //   try {
+  //     // Pass the custom headers into the fetch request
+  //     const tcData = await fetchWithTimeout(tcUrl,fetchOpts,8000);
 
-      if (tcData && tcData.results && tcData.results.length > 0) {
-        const hit = tcData.results[0];
-        console.log(`✅ TorrentClaw Match Found! -> ${hit.title}`);
+  //     if (tcData && tcData.results && tcData.results.length > 0) {
+  //       const hit = tcData.results[0];
+  //       console.log(`✅ TorrentClaw Match Found! -> ${hit.title}`);
 
-        const result = {
-          Title: hit.title,
-          Year: hit.year,
-          imdbRating: hit.ratingImdb || hit.ratingTmdb,
-          Plot: hit.overview,
-          Poster: hit.posterUrl,
-          Backdrop: hit.backdropUrl,
-          Genre: hit.genres ? hit.genres.join(', ') : null,
-          imdbID: hit.imdbId,
-          tmdbID: hit.tmdbId,
-          Type: hit.contentType || 'movie',
-          source: 'torrentclaw'
-        };
+  //       const result = {
+  //         Title: hit.title,
+  //         Year: hit.year,
+  //         imdbRating: hit.ratingImdb || hit.ratingTmdb,
+  //         Plot: hit.overview,
+  //         Poster: hit.posterUrl,
+  //         Backdrop: hit.backdropUrl,
+  //         Genre: hit.genres ? hit.genres.join(', ') : null,
+  //         imdbID: hit.imdbId,
+  //         tmdbID: hit.tmdbId,
+  //         Type: hit.contentType || 'movie',
+  //         source: 'torrentclaw'
+  //       };
 
-        console.log(tcData);
+  //       console.log(tcData);
 
-        imdbCache.set(torrentName, result);
-        return result;
-      }
-    } catch (e) {
-      console.log(`   ⚠️ TorrentClaw query failed/timeout: ${e.message}`);
-    }
-  }
-  console.log(`❌ TorrentClaw exhausted. Moving to Tier 2...`);
+  //       imdbCache.set(torrentName, result);
+  //       return result;
+  //     }
+  //   } catch (e) {
+  //     console.log(`   ⚠️ TorrentClaw query failed/timeout: ${e.message}`);
+  //   }
+  // }
+  // console.log(`❌ TorrentClaw exhausted. Moving to Tier 2...`);
 
   // STRATEGY 1: CONCURRENT TMDB SEARCH
 
@@ -568,9 +568,9 @@ const loadTorrentFromId = (torrentId) => {
       private: false
     };
 
-    // =================================================================
+   
     // 1. DUPLICATE INTERCEPTOR
-    // =================================================================
+   
     let hash = torrentId;
     if (torrentId.startsWith('magnet:')) {
       const match = torrentId.match(/xt=urn:btih:([a-fA-F0-9]{40})/i);
@@ -594,9 +594,9 @@ const loadTorrentFromId = (torrentId) => {
 
     let resolved = false;
 
-    // =================================================================
+  
     // 2. THE RED CARPET PROTOCOL (Fixes network starvation)
-    // =================================================================
+   
     const activeTorrents = client.torrents.filter(t => !t.paused && t.progress < 1);
 
     if (activeTorrents.length > 0) {
@@ -618,9 +618,9 @@ const loadTorrentFromId = (torrentId) => {
       }
     };
 
-    // =================================================================
+   
     // 3. ADD AND PROCESS TORRENT
-    // =================================================================
+   
     try {
       const torrent = client.add(magnetUri, torrentOptions);
 
@@ -674,9 +674,9 @@ const loadTorrentFromId = (torrentId) => {
         reject(error);
       });
 
-      // =================================================================
+      
       // 4. THE 30-SECOND BACKGROUND QUEUE (Fixes the Headers Sent Crash!)
-      // =================================================================
+     
       setTimeout(() => {
         if (!resolved) {
           resolved = true;

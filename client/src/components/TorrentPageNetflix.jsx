@@ -5,6 +5,7 @@ import VideoPlayer from './VideoPlayer';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
 import './TorrentPageNetflix.css';
+import torrentHistoryService from '../services/torrentHistoryService';
 
 // 1. Move Regex OUTSIDE the component so it isn't recreated on every render
 const VIDEO_REGEX = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i;
@@ -57,7 +58,17 @@ const TorrentPageNetflix = () => {
 
         if (imdbRes && imdbRes.ok) {
           const imdbJson = await imdbRes.json();
-          if (imdbJson.success) setImdbData(imdbJson.imdb);
+          if (imdbJson.success)
+            {
+              setImdbData(imdbJson.imdb);
+              // SAVE THE POSTER TO LOCAL STORAGE
+              if (imdbJson.imdb.Poster) {
+                // Assuming torrentHash is the infoHash in this context
+                torrentHistoryService.updatePoster(torrentHash, imdbJson.imdb.Poster);
+              }
+            }
+
+
         }
 
         // Load local progress history

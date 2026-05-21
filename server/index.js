@@ -212,6 +212,69 @@ async function fetchWithTimeout(url, options = {}, timeout = 8000) {
   }
 }
 
+// Enhanced title cleaning for better API results
+function cleanTorrentName(torrentName) {
+  console.log(`🔍 Cleaning torrent name: "${torrentName}"`);
+
+  // Extract year first before cleaning
+  const yearMatch = torrentName.match(/\b(19|20)\d{2}\b/);
+  const year = yearMatch ? yearMatch[0] : null;
+
+  // Enhanced series detection - more comprehensive patterns
+  const isLikelySeries = /\b(S\d+|Season|SEASON|series|Series|SERIES|E\d+|Episode|EPISODE|COMPLETE|Complete|complete)\b/i.test(torrentName);
+  console.log(`📺 Series detection: ${isLikelySeries ? 'YES' : 'NO'}`);
+
+  // First pass: Remove common torrent artifacts
+  let cleaned = torrentName
+    .replace(/\[(.*?)\]/g, '') // Remove [groups] like [YTS.MX], [OxTorrent.com]
+    .replace(/\((.*?)\)/g, '') // Remove (year) and other parentheses content initially
+    .replace(/\.(720p|1080p|480p|2160p|4K)/gi, '') // Remove quality indicators
+    .replace(/\.(BluRay|WEBRip|WEB-DL|DVDRip|CAMRip|TS|TC|WEB)/gi, '') // Remove source indicators
+    .replace(/\.(x264|x265|H264|H265|HEVC|AVC)/gi, '') // Remove codec info
+    .replace(/\.(AAC|MP3|AC3|DTS|FLAC)/gi, '') // Remove audio codec
+    .replace(/\.(mkv|mp4|avi|mov|flv)/gi, '') // Remove file extensions
+    .replace(/\b(REPACK|PROPER|EXTENDED|UNRATED|DIRECTORS|CUT)\b/gi, '') // Remove edition info
+    .replace(/\b\d+CH\b/gi, '') // Remove channel info like 2CH, 5.1CH
+    .replace(/\b(PSA|YTS|YIFY|RARBG|EZTV|TGx)\b/gi, '') // Remove release groups
+    .replace(/\./g, ' ') // Replace dots with spaces
+    .replace(/[-_]/g, ' ') // Replace hyphens and underscores with spaces
+    .replace(/\s+/g, ' ') // Normalize multiple spaces
+    .trim();
+
+  console.log(`🧹 After basic cleaning: "${cleaned}"`);
+
+  if (isLikelySeries) {
+    console.log(`📺 Applying series-specific cleaning`);
+
+    // For series, aggressively remove season/episode specific info
+    cleaned = cleaned
+      .replace(/\b(S\d+.*)/gi, '') // Remove S01 and everything after
+      .replace(/\b(Season\s*\d+.*)/gi, '') // Remove Season 1 and everything after
+      .replace(/\b(SEASON\s*\d+.*)/gi, '') // Remove SEASON 1 and everything after
+      .replace(/\b(E\d+.*)/gi, '') // Remove E01 and everything after
+      .replace(/\b(Episode\s*\d+.*)/gi, '') // Remove Episode 1 and everything after
+      .replace(/\b(EPISODE\s*\d+.*)/gi, '') // Remove EPISODE 1 and everything after
+      .replace(/\b(COMPLETE.*)/gi, '') // Remove COMPLETE and everything after
+      .replace(/\b(Complete.*)/gi, '') // Remove Complete and everything after
+      .replace(/\b(complete.*)/gi, '') // Remove complete and everything after
+      .replace(/\bSERIES\b/gi, '') // Remove standalone SERIES word
+      .replace(/\bSeries\b/gi, '') // Remove standalone Series word
+      .replace(/\bseries\b/gi, '') // Remove standalone series word
+      .replace(/\bWEB\b/gi, '') // Remove WEB
+      .replace(/\b\d+CH\b/gi, '') // Remove channel info again
+      .replace(/\b(PSA|YTS|YIFY|RARBG|EZTV|TGx)\b/gi, '') // Remove release groups again
+      .trim();
+  }
+
+  // Final cleanup
+  cleaned = cleaned
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  console.log(`✨ Final cleaned result: title="${cleaned}", year=${year}`);
+  return { candidates: cleaned, year, isLikelySeries };
+}
+
 
 // THE SMART CANDIDATE GENERATOR
 function generateSearchCandidates(torrentName) {
@@ -273,8 +336,17 @@ async function fetchIMDBData(torrentName) {
     return imdbCache.get(torrentName);
   }
 
-  const { candidates, year, isLikelySeries } = generateSearchCandidates(torrentName);
-  if (!candidates[0] || candidates[0].length < 2) return null;
+  let { candidates, year, isLikelySeries } = generateSearchCandidates(torrentName);
+
+ 
+  if (!candidates || !candidates[0]) {
+    // 3. Store the fallback results in a temporary const, then reassign the outer variables
+    const fallback = cleanTorrentName(torrentName);
+    
+    candidates = fallback.candidates;
+    year = fallback.year;
+    isLikelySeries = fallback.isLikelySeries;
+  }
 
   const omdbKey = process.env.OMDB_API_KEY || 'trilogy';
   const tmdbKey = process.env.TMDB_API_KEY;
@@ -492,7 +564,7 @@ const loadTorrentFromId = (torrentId) => {
         return resolve(existingTorrent);
       } else {
         existingTorrent.once('metadata', () => resolve(existingTorrent));
-        return; 
+        return;
       }
     }
     // =================================================================
@@ -593,7 +665,7 @@ const loadTorrentFromId = (torrentId) => {
             }
 
             clientTorrent.addedAt = new Date().toISOString();
-            clientTorrent.uploadLimit = 5000; 
+            clientTorrent.uploadLimit = 5000;
 
             if (clientTorrent.files && clientTorrent.files.length) {
               clientTorrent.files.forEach(file => {
@@ -611,7 +683,7 @@ const loadTorrentFromId = (torrentId) => {
             reject(new Error('Timeout loading torrent'));
           }
         }
-      }, 60000); 
+      }, 60000);
 
     } catch (addError) {
       reject(addError);
@@ -1353,7 +1425,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       // CRITICAL LEAK FIX: Destroy WebTorrent stream when client disconnects (scrubbing/closing)
       req.on('close', () => {
         stream.destroy(); // Kill the video stream
-        
+
         if (process.env.DEBUG === 'true') {
           console.log('🛑 Video stream closed. Waking up background torrents...');
         }
@@ -1363,7 +1435,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
           // Only resume if it is paused AND it is not 100% finished downloading
           if (t.paused && t.progress < 1) {
             t.resume();
-            
+
             // 🚨 THE THAW: Restore the bandwidth limits we dropped to 0
             if (t._originalDownloadLimit !== undefined) {
               t.downloadLimit = t._originalDownloadLimit;
@@ -1371,7 +1443,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
               // Fallback just in case it wasn't saved (Assuming 5MB/s cloud limit)
               t.downloadLimit = isCloud ? (5 * 1024 * 1024) : -1;
             }
-            
+
             // Restore reciprocity upload
             t.uploadLimit = isCloud ? (50 * 1024) : (5 * 1024 * 1024);
           }
@@ -1790,9 +1862,7 @@ function setupSystemMonitoring() {
             console.log(`   Running: ${Math.round(runningHours)}h | Progress: ${(torrent.progress * 100).toFixed(1)}%`);
 
             try {
-              // Destroy the WebTorrent instance
-              torrent.destroy();
-
+             
               // Clean our manual tracking maps
               if (typeof torrents !== 'undefined') delete torrents[identifier];
               if (typeof torrentIds !== 'undefined') delete torrentIds[identifier];
@@ -1800,10 +1870,7 @@ function setupSystemMonitoring() {
               if (typeof hashToName !== 'undefined') delete hashToName[identifier];
               if (torrent.name && typeof nameToHash !== 'undefined') delete nameToHash[torrent.name];
 
-              // Note: We don't automatically restart it anymore. 
-              // Re-adding stalled magnet links continuously just causes them to stall again 
-              // while polluting the DHT network and wasting local CPU cycles trying to find dead peers.
-              // It is safer to just remove dead torrents to free up resources.
+             
 
               systemHealth.stalledTorrentsRestarted++;
             } catch (e) {
@@ -1859,7 +1926,7 @@ setInterval(() => {
   }
 
   const now = Date.now();
-  
+
   client.torrents.forEach(torrent => {
     // 1. Skip torrents that are already 100% complete. They are safe in the cache!
     if (torrent.progress === 1) return;
@@ -1871,17 +1938,15 @@ setInterval(() => {
     if (!torrent.addedAt) return; // Safety check
     const timeAliveMs = now - new Date(torrent.addedAt).getTime();
     const minutesAlive = timeAliveMs / (1000 * 60);
-    
+
     if (minutesAlive < 10) return;
 
     // 4. THE DEATH CRITERIA: 0 Speed and 0 Peers after the grace period
     if (torrent.downloadSpeed === 0 && torrent.numPeers === 0) {
       console.log(`💀 Auto-deleting dead torrent: ${torrent.name || torrent.infoHash} (No peers for 10+ mins)`);
-      
+
       const hash = torrent.infoHash;
-      
-      // Destroy the WebTorrent process to free up Hugging Face Sockets
-      torrent.destroy();
+
 
       // Clean up the server's tracking dictionaries so it disappears from the system
       if (torrents[hash]) delete torrents[hash];

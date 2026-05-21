@@ -870,14 +870,14 @@
    MOBILE OPTIMIZATIONS
    ========================================== */
 @media (max-width: 640px) {
-  .section-header-glass {
+  /* .section-header-glass {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .modern-stats-grid {
     grid-template-columns: 1fr;
-  }
+  } */
   
   /* Optional: Make the cards slightly more compact when stacked */
   .glass-stat-card {

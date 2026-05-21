@@ -397,6 +397,15 @@ const HomePage = () => {
             <span className="stat-value">{cacheStats.activeTorrents}</span>
           </div>
         </div>
+        <div className="glass-stat-card">
+          <div className="stat-icon-wrapper blue">
+            <Activity size={20} />
+          </div>
+          <div className="stat-content">
+            <span className="stat-label">Limit</span>
+            <span className="stat-value">{cacheStats.cacheLimitFormatted}</span>
+          </div>
+        </div>
       </div>
 
 

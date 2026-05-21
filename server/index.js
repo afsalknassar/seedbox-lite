@@ -650,7 +650,7 @@ const loadTorrentFromId = (torrentId) => {
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.log(`⏰ Timeout loading torrent after 60 seconds: ${torrentId}`);
+          console.log(`⏰ Timeout loading torrent after 50 seconds: ${torrentId}`);
 
           const clientTorrent = client.torrents.find(t => t.infoHash === torrent.infoHash);
           if (clientTorrent) {
@@ -683,7 +683,7 @@ const loadTorrentFromId = (torrentId) => {
             reject(new Error('Timeout loading torrent'));
           }
         }
-      }, 60000);
+      }, 50000);
 
     } catch (addError) {
       reject(addError);

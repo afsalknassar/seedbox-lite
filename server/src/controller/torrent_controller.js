@@ -1,109 +1,7 @@
 
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
 const WebTorrent = require('webtorrent');
 const multer = require('multer');
 
-// Environment Configuration with production optimizations
-const config = {
-  server: {
-    port: process.env.SERVER_PORT || 3000,
-    host: process.env.SERVER_HOST || 'localhost',
-    protocol: process.env.SERVER_PROTOCOL || 'http'
-  },
-  frontend: {
-    url: process.env.FRONTEND_URL || 'http://localhost:5173'
-  },
-  omdb: {
-    apiKey: process.env.OMDB_API_KEY || '8265bd1c' // Free API key for development
-  },
-
-  isDevelopment: process.env.NODE_ENV !== 'production',
-
-  production: {
-    streaming: {
-      maxConnectionTime: 300000, // 5 minutes
-      defaultChunkSize: 4 * 1024 * 1024, // 4MB (Excellent for instant playback)
-      streamingUploadRate: 5120, // 5 KB/s (Enough to keep trackers happy, saves outbound bandwidth)
-      optimizeForRemote: true
-    },
-    cache: {
-      torrentListTTL: 5000, // 5 seconds
-      torrentDetailsTTL: 8000, // 8 seconds
-      imdbDataTTL: 3600000, // 1 hour (Good, IMDB data rarely changes)
-      memoryCachePurgeThreshold: 800 // 800MB (Perfect buffer for a 1024MB hard limit)
-    },
-    system: {
-      maxMemory: 1024, // 1GB
-      monitoring: true,
-      logLevel: parseInt(process.env.LOG_LEVEL || '1', 10)
-    },
-    network: {
-      maxConns: 100, // Used for standard production VPS (DigitalOcean/Hetzner)
-      defaultUploadLimit: 5120, // 5 KB/s
-      apiTimeout: 15000 // 15 seconds
-    }
-  }
-};
-
-const app = express();
-
-// Add performance monitoring middleware for API endpoints
-app.use((req, res, next) => {
-
-  // Skip for non-API routes
-  if (!req.path.startsWith('/api/')) {
-    return next();
-  }
-
-  // Store start time
-  const startTime = Date.now();
-
-  // Track if the response has been sent
-  let responseSent = false;
-
-  // Create a function to log response time
-  const logResponseTime = () => {
-
-    if (responseSent) return;
-
-    responseSent = true;
-
-    const duration = Date.now() - startTime;
-
-    // Only log slow requests or in debug mode
-    const isSlowRequest = duration > 1000;
-
-    if (isSlowRequest) {
-
-      const routeName = req.path;
-      console.log(
-        `⏱️ ${isSlowRequest ? '⚠️ SLOW API' : 'API'} ${req.method} ${routeName}: ${duration}ms` + (isSlowRequest ? ' - Consider optimization!' : '')
-      );
-    }
-  };
-
-  // Log when response is finished
-  res.on('finish', logResponseTime);
-  res.on('close', logResponseTime);
-
-  // Set a global timeout for all API requests 
-  res.setTimeout(50000, () => {
-    console.log(`⏱️ ⚠️ Global timeout reached for ${req.path}`);
-    if (!res.headersSent) {
-
-      res.status(503).send({
-        error: 'Request timeout',
-        message: 'Server is busy, please try again later'
-      });
-    }
-
-  });
-
-  next();
-});
 
 // OPTIMIZED WebTorrent configuration for production and cloud environments
 const isProduction = process.env.NODE_ENV === 'production';
@@ -161,38 +59,6 @@ const upload = multer({
   }
 });
 
-
-// Simple CORS configuration allowing all origins
-app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  optionsSuccessStatus: 200
-}));
-
-// Additional permissive CORS headers
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
-
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  next();
-});
-
-app.use(express.json());
 
 
 const imdbCache = new Map();
@@ -711,12 +577,12 @@ const loadTorrentFromId = (torrentId) => {
 
 
 // Health check
-app.get('/api/health', (req, res) => {
+const getHealth = (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+};
 
 // Authentication endpoint
-app.post('/api/auth/login', (req, res) => {
+const login = (req, res) => {
   const { password } = req.body;
   const correctPassword = process.env.ACCESS_PASSWORD || 'seedbox123';
 
@@ -742,10 +608,10 @@ app.post('/api/auth/login', (req, res) => {
       error: 'Invalid password'
     });
   }
-});
+};
 
 // UNIVERSAL ADD TORRENT - Always succeeds
-app.post('/api/torrents', async (req, res) => {
+const addTorrent = async (req, res) => {
   const { torrentId } = req.body;
   if (!torrentId) return res.status(400).json({ error: 'No torrentId provided' });
 
@@ -776,14 +642,14 @@ app.post('/api/torrents', async (req, res) => {
     console.error(`❌ Universal add failed:`, error.message);
     res.status(500).json({ error: 'Failed to add torrent: ' + error.message });
   }
-});
+};
 
 // Move these to the TOP of your file
 const fsPromises = require('fs').promises;
 const parseTorrent = require('parse-torrent');
 
 // UNIVERSAL FILE UPLOAD - Handle .torrent files
-app.post('/api/torrents/upload', upload.single('torrentFile'), async (req, res) => {
+const uploadTorrentHandler = async (req, res) => {
   console.log(`📁 UNIVERSAL FILE UPLOAD`);
 
   if (!req.file) {
@@ -930,10 +796,13 @@ app.post('/api/torrents/upload', upload.single('torrentFile'), async (req, res) 
 
     res.status(500).json({ error: 'Failed to upload torrent: ' + error.message });
   }
-});
+};
+
+// Wrapper for multer middleware
+const uploadTorrent = [upload.single('torrentFile'), uploadTorrentHandler];
 
 // UNIVERSAL GET TORRENTS - Always returns results with optimized performance
-app.get('/api/torrents', (req, res) => {
+const getTorrents = (req, res) => {
   // Add a timeout to abort long-running requests
   res.setTimeout(3000, () => {
     console.log('Request timed out for /api/torrents');
@@ -989,7 +858,7 @@ app.get('/api/torrents', (req, res) => {
     console.error('Error in /api/torrents:', error.message);
     res.status(500).json({ error: 'Internal server error' });
   }
-});
+};
 
 // TOP OF FILE: Create a safe, self-cleaning cache
 const detailsCache = new Map();
@@ -1006,7 +875,7 @@ setInterval(() => {
 
 
 // UNIVERSAL GET TORRENT DETAILS
-app.get('/api/torrents/:identifier', async (req, res) => {
+const getTorrentDetails = async (req, res) => {
   const identifier = req.params.identifier;
   const cacheKey = identifier.toLowerCase(); // Normalize keys
 
@@ -1081,10 +950,10 @@ app.get('/api/torrents/:identifier', async (req, res) => {
     console.error(`❌ Universal get failed:`, error.message);
     res.status(500).json({ error: 'Failed to get torrent details: ' + error.message });
   }
-});
+};
 
 // UNIVERSAL FILES ENDPOINT - Optimized with caching and timeout
-app.get('/api/torrents/:identifier/files', async (req, res) => {
+const getTorrentFiles = async (req, res) => {
   const identifier = req.params.identifier;
   const debugLevel = process.env.DEBUG === 'true';
 
@@ -1159,7 +1028,7 @@ app.get('/api/torrents/:identifier/files', async (req, res) => {
     console.error(`❌ Universal files failed:`, error.message);
     res.status(500).json({ error: 'Failed to get torrent files: ' + error.message });
   }
-});
+};
 
 // TOP OF FILE: Create a dedicated, self-cleaning cache for stats
 const statsCache = new Map();
@@ -1175,7 +1044,7 @@ setInterval(() => {
 }, 10000);
 
 // UNIVERSAL STATS ENDPOINT - Optimized for rapid polling
-app.get('/api/torrents/:identifier/stats', (req, res) => {
+const getTorrentStats = (req, res) => {
   const identifier = req.params.identifier;
   const debugLevel = process.env.DEBUG === 'true';
   const cacheKey = identifier.toLowerCase();
@@ -1222,10 +1091,10 @@ app.get('/api/torrents/:identifier/stats', (req, res) => {
     console.error(`❌ Universal stats failed:`, error.message);
     res.status(500).json({ error: 'Failed to get torrent stats: ' + error.message });
   }
-});
+};
 
 // IMDB Data Endpoint - Optimized with caching and timeout
-app.get('/api/torrents/:identifier/imdb', async (req, res) => {
+const getIMDBData = async (req, res) => {
 
   const identifier = req.params.identifier;
   const debugLevel = process.env.DEBUG === 'true';
@@ -1320,10 +1189,10 @@ app.get('/api/torrents/:identifier/imdb', async (req, res) => {
     console.error(`❌ IMDB endpoint failed:`, error.message);
     res.status(500).json({ error: 'Failed to get IMDB data: ' + error.message });
   }
-});
+};
 
 // UNIVERSAL SUBTITLE ENDPOINT - Converts SRT to VTT on the fly
-app.get('/api/torrents/:identifier/files/:fileIdx/subtitle', async (req, res) => {
+const getSubtitle = async (req, res) => {
 
   const { identifier, fileIdx } = req.params;
   try {
@@ -1380,13 +1249,13 @@ app.get('/api/torrents/:identifier/files/:fileIdx/subtitle', async (req, res) =>
   } catch (error) {
     res.status(500).send('Server error');
   }
-});
+};
 
 // UNIVERSAL STREAMING - Enhanced for production environments
 let streamThawTimeout = null;
 
 
-app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
+const streamFile = async (req, res) => {
 
   const { identifier, fileIdx } = req.params;
   const debugLevel = process.env.DEBUG === 'true';
@@ -1568,10 +1437,10 @@ app.get('/api/torrents/:identifier/files/:fileIdx/stream', async (req, res) => {
       res.status(500).json({ error: 'Streaming failed: ' + error.message });
     }
   }
-});
+};
 
 // UNIVERSAL DOWNLOAD - Download files with proper headers
-app.get('/api/torrents/:identifier/files/:fileIdx/download', async (req, res) => {
+const downloadFile = async (req, res) => {
   const { identifier, fileIdx } = req.params;
   console.log(`📥 UNIVERSAL DOWNLOAD: ${identifier}/${fileIdx}`);
 
@@ -1661,10 +1530,10 @@ app.get('/api/torrents/:identifier/files/:fileIdx/download', async (req, res) =>
       res.status(500).json({ error: 'Download failed: ' + error.message });
     }
   }
-});
+};
 
 // UNIVERSAL REMOVE - Cleans everything
-app.delete('/api/torrents/:identifier', async (req, res) => {
+const removeTorrent = async (req, res) => {
   const identifier = req.params.identifier.toLowerCase();
   console.log(`🗑️ UNIVERSAL REMOVE: ${identifier}`);
 
@@ -1715,11 +1584,11 @@ app.delete('/api/torrents/:identifier', async (req, res) => {
     console.error(`❌ Universal remove failed:`, error.message);
     res.status(500).json({ error: 'Failed to remove torrent: ' + error.message });
   }
-});
+};
 
 
 // UNIVERSAL CLEAR ALL - Safe sequential deletion
-app.delete('/api/torrents', async (req, res) => {
+const clearAllTorrents = async (req, res) => {
   console.log('🧹 UNIVERSAL CLEAR ALL');
 
   try {
@@ -1774,7 +1643,7 @@ app.delete('/api/torrents', async (req, res) => {
     console.error(`❌ Universal clear all failed:`, error.message);
     res.status(500).json({ error: 'Failed to clear torrents: ' + error.message });
   }
-});
+};
 
 // TOP OF FILE
 const { exec } = require('child_process');
@@ -1793,7 +1662,7 @@ const formatBytes = (bytes) => {
 
 // CACHE STATS - Optimized for rapid polling
 
-app.get('/api/cache/stats', (req, res) => {
+const getCacheStats = (req, res) => {
   try {
     // 1. Safe Cache Check (2-second TTL to prevent CPU spam)
     const cached = serverStatsCache.get('cacheStats');
@@ -1834,12 +1703,12 @@ app.get('/api/cache/stats', (req, res) => {
     console.error('❌ Error getting cache stats:', error.message);
     res.status(500).json({ error: 'Failed to get cache stats' });
   }
-});
+};
 
 
 // DISK USAGE - Timeout protected
 
-app.get('/api/system/disk', (req, res) => {
+const getDiskUsage = (req, res) => {
   try {
     // 1. Safe Cache Check (5-second TTL - disk space doesn't change instantly)
     const cached = serverStatsCache.get('diskStats');
@@ -1883,7 +1752,7 @@ app.get('/api/system/disk', (req, res) => {
     console.error('❌ Error getting disk stats:', error.message);
     res.status(500).json({ error: 'Failed to get disk stats' });
   }
-});
+};
 
 
 // SYSTEM HEALTH & MEMORY MONITORING
@@ -2008,7 +1877,7 @@ function setupSystemMonitoring() {
 setupSystemMonitoring();
 
 // Optional: API Route to view system health from a frontend dashboard
-app.get('/api/system/health', (req, res) => {
+const getSystemHealth = (req, res) => {
   try {
     const memoryUsage = process.memoryUsage();
     res.json({
@@ -2028,7 +1897,7 @@ app.get('/api/system/health', (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Failed to retrieve system health' });
   }
-});
+};
 
 
 // 🧹 THE DEAD TORRENT SWEEPER (Auto-Cleanup)
@@ -2154,6 +2023,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Function to disable seeding for completed torrents
 function disableSeedingForCompletedTorrents() {
+
   let completedCount = 0;
 
   client.torrents.forEach(torrent => {
@@ -2174,28 +2044,24 @@ function disableSeedingForCompletedTorrents() {
   return completedCount;
 }
 
-// Start server
-const PORT = config.server.port;
-const HOST = config.server.host;
-
-app.listen(PORT, "0.0.0.0", () => {
-  const serverUrl = `${config.server.protocol}://${HOST}:${PORT}`;
-  console.log(`🌱 Seedbox Lite server running on ${serverUrl}`);
-  console.log(`📱 Frontend URL: ${config.frontend.url}`);
-  console.log(`🚀 UNIVERSAL TORRENT RESOLUTION SYSTEM ACTIVE`);
-
-  // Disable seeding for any already completed torrents
-  setTimeout(() => {
-    const completedCount = disableSeedingForCompletedTorrents();
-    if (completedCount > 0) {
-      console.log(`🛑 Disabled seeding for ${completedCount} already completed torrents`);
-    }
-  }, 5000); // Give the server 5 seconds to initialize properly
-
-  console.log(`🎯 ZERO "Not Found" Errors Guaranteed`);
-  console.log(`⚠️  SECURITY: Download-only mode - Zero uploads guaranteed`);
-
-  if (config.isDevelopment) {
-    console.log('🔧 Development mode - Environment variables loaded');
-  }
-});
+// Export all controller functions
+module.exports = {
+  disableSeedingForCompletedTorrents,
+  getHealth,
+  login,
+  addTorrent,
+  uploadTorrent,
+  getTorrents,
+  getTorrentDetails,
+  removeTorrent,
+  clearAllTorrents,
+  getTorrentFiles,
+  streamFile,
+  downloadFile,
+  getSubtitle,
+  getTorrentStats,
+  getIMDBData,
+  getCacheStats,
+  getDiskUsage,
+  getSystemHealth
+};

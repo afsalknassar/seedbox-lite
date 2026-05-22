@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trash2, HardDrive, Activity, File, Calendar, ArrowLeft, RefreshCw, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { config } from '../config/environment';
-import './CacheManagementPage.css';
+import '../assets/styles/CacheManagementPage.css';
 
 const CacheManagementPage = () => {
   const navigate = useNavigate();

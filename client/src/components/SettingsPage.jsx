@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { config } from '../config/environment';
 import { useAuth } from '../context/AuthContext';
 import progressService from '../services/progressService';
-import './SettingsPage.css';
+import '../assets/styles/SettingsPage.css';
 
 const SettingsPage = () => {
   const { logout } = useAuth();

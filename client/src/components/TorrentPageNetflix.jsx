@@ -4,7 +4,7 @@ import { ArrowLeft, Play, Download, Star, Calendar, Clock, Info, FileText } from
 import VideoPlayer from './VideoPlayer';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
-import './TorrentPageNetflix.css';
+import '../assets/styles/TorrentPageNetflix.css';
 import torrentHistoryService from '../services/torrentHistoryService';
 
 // 1. Move Regex OUTSIDE the component so it isn't recreated on every render

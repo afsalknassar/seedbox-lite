@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
-import './VideoPlayer.css';
+import '../assets/styles/VideoPlayer.css';
 
 const VideoPlayer = ({
   src, title, onTimeUpdate, initialTime = 0, torrentHash = null, fileIndex = null, onClose = null, subtitleFiles = []
@@ -315,7 +315,7 @@ const VideoPlayer = ({
         setShowControls(true);
         clearTimeout(controlsTimeoutRef.current);
         controlsTimeoutRef.current = setTimeout(() => {
-          if (isPlaying && !isScrubbing) setShowControls(false);
+          if (isPlaying && !isScrubbing && !subtitlesEnabled) setShowControls(false);
         }, 3000);
       }}
       // onMouseLeave={() => !isScrubbing && isPlaying && setShowControls(false)}

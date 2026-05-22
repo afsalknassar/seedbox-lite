@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, ExternalLink } from 'lucide-react';
-import './VideoModal.css';
+import '../assets/styles/VideoModal.css';
 
 const VideoModal = ({ isOpen, onClose, children, title }) => {
   if (!isOpen) return null;

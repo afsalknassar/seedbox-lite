@@ -4,7 +4,7 @@ import { ArrowLeft, Play, Download, Star, Calendar, Clock, Users, Award, Info, S
 import VideoPlayer from './VideoPlayer';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
-import './TorrentPage.css';
+import '../assets/styles/TorrentPage.css';
 
 const TorrentPage = () => {
   const { torrentHash } = useParams();

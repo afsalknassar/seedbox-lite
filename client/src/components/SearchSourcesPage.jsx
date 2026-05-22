@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, ExternalLink, Edit, Trash2, Download, Upload, Move, ArrowUp, ArrowDown } from 'lucide-react';
 import searchSourcesService from '../services/searchSourcesService';
-import './SearchSourcesPage.css';
+import '../assets/styles/SearchSourcesPage.css';
 
 const SearchSourcesPage = () => {
   const [sources, setSources] = useState([]);

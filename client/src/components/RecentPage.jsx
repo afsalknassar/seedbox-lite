@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Play, Trash2, Clock, Film } from 'lucide-react';
 import VideoModal from './VideoModal';
 import progressService from '../services/progressService';
-import './RecentPage.css';
+import '../assets/styles/RecentPage.css';
 
 const RecentPage = () => {
   const navigate = useNavigate();

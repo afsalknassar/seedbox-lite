@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search } from 'lucide-react';
 import { config } from '../config/environment';
-import './Layout.css';
+import '../assets/styles/Layout.css';
 
 const Layout = () => {
   const location = useLocation();

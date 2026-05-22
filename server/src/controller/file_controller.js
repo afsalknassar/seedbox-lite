@@ -1,0 +1,543 @@
+/**
+ * ============================================================================
+ * FILE CONTROLLER
+ * ============================================================================
+ * 
+ * This module handles file operations for torrents:
+ * - Getting torrent file lists with pagination
+ * - Streaming video files with HTTP range support
+ * - Downloading files with pause/resume support
+ * - Serving subtitle files (SRT/VTT conversion)
+ * 
+ * Features:
+ * - Deep Freeze protocol for streaming optimization
+ * - Smart chunking to prevent RAM exhaustion
+ * - Debounced thaw to prevent chunk thrashing
+ * - SRT to VTT conversion on the fly
+ * 
+ * @module file_controller
+ */
+
+const { client } = require('../torrent_client');
+const { universalTorrentResolver } = require('../utils/torrent_utils');
+
+// ============================================================================
+// GET TORRENT FILES ENDPOINT
+// ============================================================================
+
+/**
+ * Get list of files in a torrent with pagination support
+ */
+const getTorrentFiles = async (req, res) => {
+  const identifier = req.params.identifier;
+  const debugLevel = process.env.DEBUG === 'true';
+
+  if (debugLevel) {
+    console.log(`📁 [GET FILES] Request for: ${identifier}`);
+  }
+
+  // Add a timeout to prevent hanging requests
+  const requestTimeout = setTimeout(() => {
+    console.log(`⏱️ [GET FILES] Request timed out for: ${identifier}`);
+    if (!res.headersSent) {
+      res.status(503).json({
+        error: 'Request timeout',
+        message: 'Files request timed out, try again later'
+      });
+    }
+  }, 5000); // 5 second timeout
+
+  try {
+    // Check cache first
+    const cacheKey = `files_${identifier}`;
+    const now = Date.now();
+    if (global[cacheKey] &&
+      global[`${cacheKey}_time`] &&
+      now - global[`${cacheKey}_time`] < 10000) { // 10 second cache
+      if (debugLevel) {
+        console.log(`💾 [GET FILES] Returning cached data`);
+      }
+      clearTimeout(requestTimeout);
+      return res.json(global[cacheKey]);
+    }
+
+    const torrent = await universalTorrentResolver(identifier);
+
+    if (!torrent) {
+      clearTimeout(requestTimeout);
+      console.log(`❌ [GET FILES] Torrent not found: ${identifier}`);
+      return res.status(404).json({ error: 'Torrent not found' });
+    }
+
+    // Handle large torrents more efficiently by paginating results
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.pageSize) || 1000;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+
+    const totalFiles = torrent.files.length;
+
+    const files = torrent.files
+      .slice(start, end)
+      .map((file, idx) => ({
+        index: start + idx, // Correct index based on pagination
+        name: file.name,
+        size: file.length || 0,
+        downloaded: file.downloaded || 0,
+        progress: file.progress || 0
+      }));
+
+    const response = {
+      files,
+      pagination: {
+        page,
+        pageSize,
+        totalFiles,
+        totalPages: Math.ceil(totalFiles / pageSize)
+      }
+    };
+
+    // Cache the response
+    global[cacheKey] = response;
+    global[`${cacheKey}_time`] = now;
+
+    if (debugLevel) {
+      console.log(`✅ [GET FILES] Returning ${files.length} files (page ${page}/${Math.ceil(totalFiles / pageSize)})`);
+    }
+
+    clearTimeout(requestTimeout);
+    res.json(response);
+
+  } catch (error) {
+    clearTimeout(requestTimeout);
+    console.error(`❌ [GET FILES] Failed:`, error.message);
+    res.status(500).json({ error: 'Failed to get torrent files: ' + error.message });
+  }
+};
+
+// ============================================================================
+// SUBTITLE ENDPOINT
+// ============================================================================
+
+/**
+ * Serve subtitle files with SRT to VTT conversion on the fly
+ */
+const getSubtitle = async (req, res) => {
+  const { identifier, fileIdx } = req.params;
+  
+  if (process.env.DEBUG === 'true') {
+    console.log(`📝 [SUBTITLE] Request for: ${identifier}/${fileIdx}`);
+  }
+
+  try {
+    const torrent = await universalTorrentResolver(identifier);
+    if (!torrent) {
+      console.log(`❌ [SUBTITLE] Torrent not found: ${identifier}`);
+      return res.status(404).send('Torrent not found');
+    }
+    
+    const file = torrent.files[parseInt(fileIdx, 10)];
+    if (!file) {
+      console.log(`❌ [SUBTITLE] File not found: ${fileIdx}`);
+      return res.status(404).send('File not found');
+    }
+
+    // ADD THESE CORS HEADERS SO THE BROWSER DOESN'T BLOCK THE TRACK
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+
+    res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+    
+    console.log(`📝 [SUBTITLE] Serving: ${file.name}`);
+    
+    // If it's already vtt, stream as is
+    if (file.name.endsWith('.vtt')) {
+      const stream = file.createReadStream();
+      return stream.pipe(res);
+    }
+    
+    // Convert SRT to VTT
+    res.write('WEBVTT\n\n');
+    const stream = file.createReadStream();
+    
+    let remainder = '';
+    stream.on('data', (chunk) => {
+      let text = remainder + chunk.toString('utf8');
+      
+      const lastNewline = text.lastIndexOf('\n');
+      if (lastNewline !== -1) {
+        remainder = text.substring(lastNewline + 1);
+        text = text.substring(0, lastNewline + 1);
+      } else {
+        remainder = text;
+        text = '';
+      }
+      
+      text = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+      res.write(text);
+    });
+    
+    stream.on('end', () => {
+      if (remainder) {
+        res.write(remainder.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2'));
+      }
+      res.end();
+    });
+    
+    stream.on('error', (err) => {
+      console.error(`❌ [SUBTITLE] Streaming error:`, err.message);
+      if (!res.headersSent) res.status(500).send('Error streaming subtitle');
+    });
+  } catch (error) {
+    console.error(`❌ [SUBTITLE] Failed:`, error.message);
+    res.status(500).send('Server error');
+  }
+};
+
+// ============================================================================
+// STREAM FILE ENDPOINT
+// ============================================================================
+
+/**
+ * Stream video files with HTTP range support and Deep Freeze protocol
+ * 
+ * Features:
+ * - Deep Freeze: Pauses background torrents for priority streaming
+ * - Smart Chunking: Prevents RAM exhaustion with 4-8MB chunks
+ * - Debounced Thaw: Prevents chunk thrashing with 10s delay
+ * - Piece Prioritization: Prioritizes needed pieces for smooth playback
+ */
+let streamThawTimeout = null;
+
+const streamFile = async (req, res) => {
+  const { identifier, fileIdx } = req.params;
+  const debugLevel = process.env.DEBUG === 'true';
+  const streamRequestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  if (debugLevel) {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`🎬 [STREAM] Request: ${identifier}/${fileIdx}`);
+    console.log(`   - Request ID: ${streamRequestId}`);
+    console.log(`   - IP: ${req.ip}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
+
+  // 1. CANCEL ANY PENDING THAW
+  // A new chunk request just came in, so the user is still watching.
+  // This prevents the debounce from waking up torrents while user is actively watching
+  if (streamThawTimeout) {
+    clearTimeout(streamThawTimeout);
+    streamThawTimeout = null;
+    if (debugLevel) {
+      console.log(`🔄 [STREAM] New chunk requested. Background torrents remaining frozen.`);
+    }
+  }
+
+  // Set a timeout strictly for the SETUP phase (finding metadata)
+  const setupTimeout = setTimeout(() => {
+    console.log(`⏱️ [STREAM] Setup timeout for request ${streamRequestId}`);
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Streaming request timeout' });
+    }
+  }, 30000); // 30 seconds is plenty for setup
+
+  try {
+    const torrent = await universalTorrentResolver(identifier);
+
+    if (!torrent) {
+      clearTimeout(setupTimeout);
+      console.log(`❌ [STREAM] Torrent not found: ${identifier}`);
+      return res.status(404).json({ error: 'Torrent not found for streaming' });
+    }
+
+    const file = torrent.files[parseInt(fileIdx, 10)];
+    if (!file) {
+      clearTimeout(setupTimeout);
+      console.log(`❌ [STREAM] File not found: ${fileIdx}`);
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // 2. THE DEEP FREEZE (Pause everything else)
+    let pausedCount = 0;
+    client.torrents.forEach(t => {
+      if (t.infoHash !== torrent.infoHash && !t.paused) {
+        if (process.env.DEBUG === 'true') {
+          console.log(`⏸️ [STREAM] Deep-freezing: ${t.name}`);
+        }
+        t.pause(); // Soft pause the swarm
+        pausedCount++;
+      }
+    });
+
+    if (debugLevel && pausedCount > 0) {
+      console.log(`⏸️ [STREAM] Paused ${pausedCount} background torrents`);
+    }
+
+    // Now, safely resume ONLY the one we want to watch
+    if (torrent.paused) {
+      torrent.resume();
+    }
+    file.select();
+
+    // MIME Type detection
+    const ext = file.name.split('.').pop().toLowerCase();
+    const mimeTypes = {
+      'mp4': 'video/mp4', 'mkv': 'video/x-matroska', 'avi': 'video/x-msvideo',
+      'mov': 'video/quicktime', 'wmv': 'video/x-ms-wmv', 'flv': 'video/x-flv',
+      'webm': 'video/webm', 'm4v': 'video/mp4', 'ts': 'video/mp2t',
+      'mts': 'video/mp2t', '3gp': 'video/3gpp', 'mpg': 'video/mpeg',
+      'mpeg': 'video/mpeg', 'vtt': 'text/vtt', 'srt': 'text/plain'
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+    const range = req.headers.range;
+
+    // We found the file, clear the setup timeout so it doesn't linger
+    clearTimeout(setupTimeout);
+
+    if (debugLevel) {
+      console.log(`🎬 [STREAM] Streaming: ${file.name}`);
+      console.log(`   - Size: ${(file.length / 1024 / 1024 / 1024).toFixed(2)} GB`);
+      console.log(`   - Content-Type: ${contentType}`);
+      console.log(`   - Range: ${range || 'full file'}`);
+    }
+
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+
+      // Safari often sends "bytes=0-1" to test range support
+      let end = parts[1] ? parseInt(parts[1], 10) : null;
+
+      // Smart Chunking logic to prevent RAM exhaustion
+      if (end === null) {
+        if (start === 0) {
+          end = Math.min(start + (4 * 1024 * 1024), file.length - 1); // 4MB initial
+        } else {
+          end = Math.min(start + (8 * 1024 * 1024), file.length - 1); // 8MB seeking
+        }
+      }
+
+      const chunkSize = (end - start) + 1;
+
+      // WebTorrent Piece Prioritization Strategy
+      const pieceLength = torrent.pieceLength || 16384;
+      const startPiece = Math.floor((file.offset + start) / pieceLength);
+      const endPiece = Math.ceil((file.offset + end) / pieceLength);
+
+      try {
+        torrent.select(startPiece, endPiece, 1);
+        if (typeof torrent.critical === 'function') {
+          torrent.critical(startPiece, startPiece + 2);
+        }
+      } catch (err) {
+        if (debugLevel) console.log(`⚠️ [STREAM] Prioritization ignored:`, err.message);
+      }
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${file.length}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Range, Content-Type',
+        'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
+        'Connection': 'keep-alive'
+      });
+
+      const stream = file.createReadStream({ start, end });
+
+      // 3. THE DEBOUNCED THAW ON CLOSE (Fixes chunk thrashing)
+      req.on('close', () => {
+        stream.destroy(); // Kill the video stream for this chunk
+
+        // Wait 10 seconds before resuming background downloads.
+        // If the player asks for the next chunk, this gets cancelled at the top!
+        streamThawTimeout = setTimeout(() => {
+          if (process.env.DEBUG === 'true') {
+            console.log('🛑 [STREAM] Stream closed (10s). Waking up background torrents...');
+          }
+
+          client.torrents.forEach(t => {
+            if (t.paused && t.progress < 1) {
+              t.resume();
+            }
+          });
+        }, 10000);
+      });
+
+      stream.on('error', (err) => {
+        if (debugLevel) console.error(`❌ [STREAM] Stream error [${streamRequestId}]:`, err.message);
+        stream.destroy();
+        if (!res.headersSent) res.status(500).end();
+      });
+
+      stream.pipe(res);
+
+    } else {
+      // Handle full file request (direct downloads)
+      res.writeHead(200, {
+        'Content-Length': file.length,
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes',
+        'Access-Control-Allow-Origin': '*'
+      });
+
+      const stream = file.createReadStream();
+
+      // Apply the same debounce thaw to non-range requests just in case they drop out
+      req.on('close', () => {
+        stream.destroy();
+        streamThawTimeout = setTimeout(() => {
+          client.torrents.forEach(t => {
+            if (t.paused && t.progress < 1) {
+              t.resume();
+            }
+          });
+        }, 10000);
+      });
+
+      stream.on('error', (err) => {
+        stream.destroy();
+        if (!res.headersSent) res.status(500).end();
+      });
+
+      stream.pipe(res);
+    }
+
+  } catch (error) {
+    clearTimeout(setupTimeout);
+    console.error(`❌ [STREAM] Failed:`, error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Streaming failed: ' + error.message });
+    }
+  }
+};
+
+// ============================================================================
+// DOWNLOAD FILE ENDPOINT
+// ============================================================================
+
+/**
+ * Download files with proper headers and pause/resume support
+ * 
+ * Features:
+ * - HTTP range support for pause/resume
+ * - Safe filename encoding to prevent header injection
+ * - Stream cleanup on cancellation
+ * - Memory protection with error handling
+ */
+const downloadFile = async (req, res) => {
+  const { identifier, fileIdx } = req.params;
+  
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`📥 [DOWNLOAD] Request: ${identifier}/${fileIdx}`);
+  console.log(`   - IP: ${req.ip}`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+  try {
+    const torrent = await universalTorrentResolver(identifier);
+
+    if (!torrent) {
+      console.log(`❌ [DOWNLOAD] Torrent not found: ${identifier}`);
+      return res.status(404).json({ error: 'Torrent not found for download' });
+    }
+
+    const file = torrent.files[fileIdx];
+    if (!file) {
+      console.log(`❌ [DOWNLOAD] File not found: ${fileIdx}`);
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // 1. Wake up the torrent if it was deep-frozen
+    if (torrent.paused) {
+      torrent.resume();
+      console.log(`▶️ [DOWNLOAD] Resumed paused torrent`);
+    }
+
+    // 2. Explicitly prioritize this file to the swarm
+    file.select();
+
+    console.log(`📥 [DOWNLOAD] Starting: ${file.name}`);
+    console.log(`   - Size: ${(file.length / 1024 / 1024).toFixed(1)} MB`);
+
+    // 3. Clean up the filename and encode it safely to prevent HTTP Header Injection attacks
+    const safeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const encodedFilename = encodeURIComponent(safeFilename);
+
+    // 4. Calculate Ranges for IDM (Internet Download Manager) and pause/resume support
+    const range = req.headers.range;
+    let start = 0;
+    let end = file.length - 1;
+    let statusCode = 200;
+
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      start = parseInt(parts[0], 10);
+      end = parts[1] ? parseInt(parts[1], 10) : file.length - 1;
+      statusCode = 206; // Partial Content
+
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${file.length}`);
+      console.log(`📥 [DOWNLOAD] Range request: ${start}-${end}/${file.length}`);
+    }
+
+    const chunkSize = (end - start) + 1;
+
+    // 5. Write headers once, cleanly
+    res.writeHead(statusCode, {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': chunkSize,
+      'Content-Disposition': `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
+      'Accept-Ranges': 'bytes'
+    });
+
+    // 6. Create the optimized stream
+    const stream = file.createReadStream({ start, end });
+
+    // 🛡️ CRITICAL STABILITY & MEMORY FIXE
+    // Catch mid-download cancellations so they don't crash the Node server
+    stream.on('error', (err) => {
+      if (err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.message.includes('prematurely')) {
+        if (process.env.DEBUG === 'true') {
+          console.log(`🛑 [DOWNLOAD] Cancelled by user: ${file.name}`);
+        }
+      } else {
+        console.error(`❌ [DOWNLOAD] Stream error for ${file.name}:`, err.message);
+      }
+    });
+
+    // If the user closes the browser or cancels the download, instantly destroy the stream
+    // This frees up the server's RAM and network sockets immediately!
+    req.on('close', () => {
+      if (!stream.destroyed) {
+        stream.destroy();
+        if (process.env.DEBUG === 'true') {
+          console.log(`🛑 [DOWNLOAD] Stream destroyed on close`);
+        }
+      }
+    });
+
+    // 7. Blast the data to the browser
+    stream.pipe(res);
+
+  } catch (error) {
+    console.error(`❌ [DOWNLOAD] Failed:`, error.message);
+
+    // Safety check: Only send a 500 error if we haven't already started sending the file
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Download failed: ' + error.message });
+    }
+  }
+};
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+module.exports = {
+  getTorrentFiles,
+  getSubtitle,
+  streamFile,
+  downloadFile
+};

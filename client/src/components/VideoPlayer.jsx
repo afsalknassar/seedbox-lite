@@ -9,7 +9,7 @@ import progressService from '../services/progressService';
 import './VideoPlayer.css';
 
 const VideoPlayer = ({
-  src, title, onTimeUpdate, initialTime = 0, torrentHash = null, fileIndex = null, onClose = null
+  src, title, onTimeUpdate, initialTime = 0, torrentHash = null, fileIndex = null, onClose = null, subtitleFiles = []
 }) => {
   const videoRef = useRef(null);
 
@@ -44,6 +44,7 @@ const VideoPlayer = ({
   // Subtitles
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
+  const [activeSubtitleIndex, setActiveSubtitleIndex] = useState(0);
 
   // Resume State
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -180,6 +181,24 @@ const VideoPlayer = ({
     };
   }, [initialTime, torrentHash, fileIndex, title, isScrubbing, hasAppliedInitialTime, updateBufferedProgress, onTimeUpdate]);
 
+
+
+  // 1. Hook to manage subtitle visibility natively
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    const tracks = videoRef.current.textTracks;
+
+    for (let i = 0; i < tracks.length; i++) {
+      // Show the track ONLY if subtitles are enabled AND the index matches the chosen track
+      if (subtitlesEnabled && i === activeSubtitleIndex) {
+        tracks[i].mode = 'showing';
+      } else {
+        tracks[i].mode = 'hidden';
+      }
+    }
+  }, [subtitlesEnabled, activeSubtitleIndex, subtitleFiles]);
+
   // ==========================================
   // 3. SAFE SCRUBBING & GESTURES
   // ==========================================
@@ -315,7 +334,19 @@ const VideoPlayer = ({
         onTouchEnd={handleTouchEnd}
         playsInline
         crossOrigin="anonymous"
-      />
+      >
+        {subtitleFiles.map((sub, idx) => (
+          <track
+            key={sub.index}
+            kind="subtitles"
+            src={`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${sub.index}/subtitle`}
+            srcLang="en"
+            label={sub.name}
+            default={idx === 0}
+          />
+        ))}
+
+      </video>
 
       <div className="controls-gradient-top" />
 
@@ -444,21 +475,51 @@ const VideoPlayer = ({
               )}
             </div>
             {/* Subtitles Menu */}
-            <div className="subtitle-menu">
-              <button onClick={() => setShowSubtitleMenu(!showSubtitleMenu)} className={`control-button ${subtitlesEnabled ? 'active' : ''}`}>
-                <Subtitles size={18} />
-              </button>
-              {showSubtitleMenu && (
-                <div className="subtitle-dropdown">
-                  <div className="subtitle-section">
-                    <span>Subtitles</span>
-                    <button className={`subtitle-option ${subtitlesEnabled ? 'active' : ''}`} onClick={() => setSubtitlesEnabled(!subtitlesEnabled)}>
-                      {subtitlesEnabled ? 'Disable' : 'Enable'} Subtitles
-                    </button>
+            {subtitleFiles.length > 0 && (
+              <div className="subtitle-menu">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowSubtitleMenu(!showSubtitleMenu); }}
+                  className={`control-button ${subtitlesEnabled ? 'active' : ''}`}
+                >
+                  <Subtitles size={18} />
+                </button>
+
+                {showSubtitleMenu && (
+                  <div className="subtitle-dropdown" onClick={(e) => e.stopPropagation()}>
+                    <div className="subtitle-section">
+                      <span>Subtitles</span>
+
+                      {/* The "OFF" Button */}
+                      <button
+                        className={`subtitle-option ${!subtitlesEnabled ? 'active' : ''}`}
+                        onClick={() => {
+                          setSubtitlesEnabled(false);
+                          setShowSubtitleMenu(false);
+                        }}
+                      >
+                       Disbale subtitles
+                      </button>
+
+                      {/* Loop through all files and create a button for each one */}
+                      {subtitleFiles.map((sub, idx) => (
+                        <button
+                          key={sub.index}
+                          className={`subtitle-option ${subtitlesEnabled && activeSubtitleIndex === idx ? 'active' : ''}`}
+                          onClick={() => {
+                            setActiveSubtitleIndex(idx);
+                            setSubtitlesEnabled(true);
+                            setShowSubtitleMenu(false);
+                          }}
+                        >
+                          {sub.name || `Track ${idx + 1}`}
+                        </button>
+                      ))}
+
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
 
             {/* Settings Menu */}
             <div className="settings-menu">

@@ -620,3 +620,137 @@
   }
 }
 
+/* =========================================
+   SCROLLABLE & RESPONSIVE DROPDOWNS
+   ========================================= */
+.subtitle-menu, .settings-menu { 
+  position: relative; 
+}
+
+.subtitle-dropdown, .settings-dropdown {
+  position: absolute;
+  bottom: calc(100% + 16px);
+  right: 0;
+  background: rgba(15, 15, 15, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 140px;
+  
+  /* CRITICAL FOR LONG LISTS: Restricts height and adds scrolling */
+  max-height: 250px; 
+  overflow-y: auto; 
+  overflow-x: hidden;
+  
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  animation: slideUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  transform-origin: bottom right;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Customizing the scrollbar to match the premium dark theme */
+.subtitle-dropdown::-webkit-scrollbar, 
+.settings-dropdown::-webkit-scrollbar {
+  width: 4px;
+}
+.subtitle-dropdown::-webkit-scrollbar-track,
+.settings-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+.subtitle-dropdown::-webkit-scrollbar-thumb,
+.settings-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Base styles for the items inside */
+.subtitle-section > span, .settings-section > span {
+  display: block;
+  color: #71717a;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 8px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Update your base option class */
+.subtitle-option, .settings-option {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #e4e4e7;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  /* THIS FIXES THE TEXT PROBLEM: */
+  display: block; 
+  white-space: nowrap; /* Forces text to stay on one line */
+  overflow: hidden;    /* Hides anything that doesn't fit */
+  text-overflow: ellipsis; /* Adds the "..." at the end */
+}
+
+
+
+.subtitle-option:hover, .settings-option:hover { 
+  background: rgba(255, 255, 255, 0.1); 
+}
+
+/* Active State (Currently selected subtitle) */
+.subtitle-option.active, .settings-option.active { 
+  color: #3b82f6;
+  max-width: 100%; 
+  background: rgba(59, 130, 246, 0.1); 
+  font-weight: 500;
+  text-wrap: wrap;
+}
+
+
+/* =========================================
+   MOBILE RESPONSIVENESS
+   ========================================= */
+@media (max-width: 768px) {
+  .subtitle-dropdown, .settings-dropdown {
+    /* Break out of the relative button container */
+    position: fixed; 
+    
+    /* Place it above the bottom controls, dead center */
+    bottom: 80px; 
+    left: 50%;
+    right: auto;
+    
+    /* Center alignment trick */
+    transform: translateX(-50%) scale(1) !important; 
+    
+    /* Widen it for easier tapping with thumbs */
+    width: 90%; 
+    max-width: 320px; 
+    
+    /* Allow it to grow taller on mobile, but still scroll if necessary */
+    max-height: 50vh; 
+    
+    border-radius: 16px;
+    padding: 8px;
+    transform-origin: bottom center;
+  }
+
+  /* Make the buttons slightly larger on mobile for "fat fingers" */
+  .subtitle-option, .settings-option {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    max-width: 100%;
+  }
+}
+

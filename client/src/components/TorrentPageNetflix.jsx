@@ -134,18 +134,21 @@ const TorrentPageNetflix = () => {
   }, [torrentHash]); // Notice selectedVideo is NOT a dependency here anymore
 
   // 5. Memoize expensive array filtering
-  const { videoFiles, otherFiles, mainVideoFile } = useMemo(() => {
+  const { videoFiles, otherFiles, subtitleFiles, mainVideoFile } = useMemo(() => {
     const videos = [];
     const others = [];
+    const subtitles = [];
 
     files.forEach(file => {
       if (VIDEO_REGEX.test(file.name)) videos.push(file);
+      else if (/\.(srt|vtt)$/i.test(file.name)) subtitles.push(file);
       else others.push(file);
     });
 
     return {
       videoFiles: videos,
       otherFiles: others,
+      subtitleFiles: subtitles,
       mainVideoFile: videos.length > 0 ? videos[0] : null
     };
   }, [files]);
@@ -236,6 +239,7 @@ const TorrentPageNetflix = () => {
           initialTime={initialProgress}
           torrentHash={torrentHash}
           fileIndex={selectedVideo.index}
+          subtitleFiles={subtitleFiles}
         />
       </div>
     );
@@ -335,6 +339,8 @@ const TorrentPageNetflix = () => {
                     <div className="netflix-episode-thumbnail">
                       {imdbData?.Backdrop ? (
                         <img src={imdbData.Backdrop} alt="Thumbnail" />
+                      ) : imdbData.Poster ? (
+                        <img src={imdbData.Poster} alt="Thumbnail" />
                       ) : (
                         <div style={{ width: '100%', height: '100%', background: '#333' }}></div>
                       )}
@@ -392,6 +398,32 @@ const TorrentPageNetflix = () => {
               <h2>Additional Files</h2>
               <div className="netflix-files">
                 {otherFiles.map(file => (
+                  <div key={file.index} className="netflix-file">
+                    <div className="netflix-file-icon">
+                      <FileText size={24} strokeWidth={2} color="#ffffff" />
+                    </div>
+                    <div className="netflix-file-info">
+                      <span className="netflix-file-name" title={file.name}>{file.name}</span>
+                      <span className="netflix-file-size">{formatFileSize(file.size)}</span>
+                    </div>
+                    <button
+
+                      onClick={(e) => handleDownload(e, file.index)}
+                      title="Download"
+                    >
+                      <Download size={18} strokeWidth={2} color="#ffffff" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+           {subtitleFiles.length > 0 && (
+            <div className="netflix-section">
+              <h2>Subtitles</h2>
+              <div className="netflix-files">
+                {subtitleFiles.map(file => (
                   <div key={file.index} className="netflix-file">
                     <div className="netflix-file-icon">
                       <FileText size={24} strokeWidth={2} color="#ffffff" />

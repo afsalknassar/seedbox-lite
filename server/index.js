@@ -568,9 +568,9 @@ const loadTorrentFromId = (torrentId) => {
       private: false
     };
 
-   
+
     // 1. DUPLICATE INTERCEPTOR
-   
+
     let hash = torrentId;
     if (torrentId.startsWith('magnet:')) {
       const match = torrentId.match(/xt=urn:btih:([a-fA-F0-9]{40})/i);
@@ -594,9 +594,9 @@ const loadTorrentFromId = (torrentId) => {
 
     let resolved = false;
 
-  
+
     // 2. THE RED CARPET PROTOCOL (Fixes network starvation)
-   
+
     const activeTorrents = client.torrents.filter(t => !t.paused && t.progress < 1);
 
     if (activeTorrents.length > 0) {
@@ -618,9 +618,9 @@ const loadTorrentFromId = (torrentId) => {
       }
     };
 
-   
+
     // 3. ADD AND PROCESS TORRENT
-   
+
     try {
       const torrent = client.add(magnetUri, torrentOptions);
 
@@ -674,9 +674,9 @@ const loadTorrentFromId = (torrentId) => {
         reject(error);
       });
 
-      
+
       // 4. THE 30-SECOND BACKGROUND QUEUE (Fixes the Headers Sent Crash!)
-     
+
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
@@ -955,7 +955,12 @@ app.get('/api/torrents', (req, res) => {
     const activeTorrents = [];
     for (const key in torrents) {
       const torrent = torrents[key];
+
+      // console.log(torrent);
       if (!torrent) continue;
+
+      // Try to get IMDB data from cache if it was already fetched
+      const imdbData = imdbCache.get(torrent.name);
 
       activeTorrents.push({
         infoHash: torrent.infoHash,
@@ -967,7 +972,8 @@ app.get('/api/torrents', (req, res) => {
         downloadSpeed: torrent.downloadSpeed || 0,
         uploadSpeed: 0,
         peers: torrent.numPeers || 0,
-        addedAt: torrent.addedAt || new Date().toISOString()
+        addedAt: torrent.addedAt || new Date().toISOString(),
+        poster: imdbData ? imdbData.Poster : null
       });
     }
 
@@ -1316,6 +1322,66 @@ app.get('/api/torrents/:identifier/imdb', async (req, res) => {
   }
 });
 
+// UNIVERSAL SUBTITLE ENDPOINT - Converts SRT to VTT on the fly
+app.get('/api/torrents/:identifier/files/:fileIdx/subtitle', async (req, res) => {
+
+  const { identifier, fileIdx } = req.params;
+  try {
+    const torrent = await universalTorrentResolver(identifier);
+    if (!torrent) return res.status(404).send('Torrent not found');
+    
+    const file = torrent.files[parseInt(fileIdx, 10)];
+    if (!file) return res.status(404).send('File not found');
+
+    // ADD THESE CORS HEADERS SO THE BROWSER DOESN'T BLOCK THE TRACK
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+
+    res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
+    
+    // If it's already vtt, stream as is
+    if (file.name.endsWith('.vtt')) {
+      const stream = file.createReadStream();
+      return stream.pipe(res);
+    }
+    
+    // Convert SRT to VTT
+    res.write('WEBVTT\n\n');
+    const stream = file.createReadStream();
+    
+    let remainder = '';
+    stream.on('data', (chunk) => {
+      let text = remainder + chunk.toString('utf8');
+      
+      const lastNewline = text.lastIndexOf('\n');
+      if (lastNewline !== -1) {
+        remainder = text.substring(lastNewline + 1);
+        text = text.substring(0, lastNewline + 1);
+      } else {
+        remainder = text;
+        text = '';
+      }
+      
+      text = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+      res.write(text);
+    });
+    
+    stream.on('end', () => {
+      if (remainder) {
+        res.write(remainder.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2'));
+      }
+      res.end();
+    });
+    
+    stream.on('error', (err) => {
+      console.error('Subtitle streaming error:', err);
+      if (!res.headersSent) res.status(500).send('Error streaming subtitle');
+    });
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
 // UNIVERSAL STREAMING - Enhanced for production environments
 let streamThawTimeout = null;
 
@@ -1525,7 +1591,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/download', async (req, res) =>
     if (torrent.paused) {
       torrent.resume();
     }
-    
+
     // 2. Explicitly prioritize this file to the swarm
     file.select();
 
@@ -1546,7 +1612,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/download', async (req, res) =>
       start = parseInt(parts[0], 10);
       end = parts[1] ? parseInt(parts[1], 10) : file.length - 1;
       statusCode = 206; // Partial Content
-      
+
       res.setHeader('Content-Range', `bytes ${start}-${end}/${file.length}`);
     }
 
@@ -1566,7 +1632,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/download', async (req, res) =>
     // =================================================================
     // 🛡️ CRITICAL STABILITY & MEMORY FIXES
     // =================================================================
-    
+
     // Catch mid-download cancellations so they don't crash the Node server
     stream.on('error', (err) => {
       if (err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.message.includes('prematurely')) {
@@ -1589,7 +1655,7 @@ app.get('/api/torrents/:identifier/files/:fileIdx/download', async (req, res) =>
 
   } catch (error) {
     console.error(`❌ Universal download failed:`, error.message);
-    
+
     // Safety check: Only send a 500 error if we haven't already started sending the file
     if (!res.headersSent) {
       res.status(500).json({ error: 'Download failed: ' + error.message });

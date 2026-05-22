@@ -458,15 +458,16 @@ const HomePage = () => {
             <h2>Recent Torrents</h2>
           </div>
           <div className="history-actions">
+            <button onClick={() => setShowHistory(!showHistory)} className="btn-secondary">
+              {showHistory ? 'Show Less' : `View All (${filteredTorrents.length})`}
+            </button>
             {showHistory && filteredTorrents.length > 0 && (
               <button onClick={clearAllHistory} className="btn-danger">
                 <Trash2 size={16} />
                 <span className="desktop-only">Clear</span>
               </button>
             )}
-            <button onClick={() => setShowHistory(!showHistory)} className="btn-secondary">
-              {showHistory ? 'Show Less' : `View All (${filteredTorrents.length})`}
-            </button>
+
 
           </div>
         </div>
@@ -486,7 +487,7 @@ const HomePage = () => {
         {filteredTorrents.length > 0 ? (
 
           <div className="history-grid">
-            {(showHistory ? filteredTorrents : filteredTorrents.slice(0, 2)).map((torrent) => (
+            {(showHistory ? filteredTorrents : filteredTorrents.slice(0, 5)).map((torrent) => (
               <div
                 key={torrent.infoHash}
                 className="history-card"
@@ -589,9 +590,6 @@ const HomePage = () => {
               <div className="modern-cache-grid">
                 {(showAllCache ? filteredCacheTorrents : filteredCacheTorrents.slice(0, 5)).map((t) => {
 
-                  const historyItem = torrentHistoryService.getTorrentByInfoHash(t.infoHash);
-                  const posterUrl = historyItem?.poster; // Safely extract the poster if it exists
-
                   const percent = t.progress ? (t.progress * 100).toFixed(1) : 0;
                   return (
                     <div key={t.infoHash} className="modern-cache-card" onClick={() => goToTorrent(t.infoHash)}>
@@ -599,9 +597,9 @@ const HomePage = () => {
 
                         {/* 1. REUSED POSTER WRAPPER */}
                         <div className="card-poster">
-                          {posterUrl && posterUrl !== 'N/A' ? (
+                          {t.poster && t.poster !== 'N/A' ? (
                             <img
-                              src={posterUrl}
+                              src={t.poster}
                               alt={t.name}
                               referrerPolicy="no-referrer"
                             />
@@ -615,7 +613,7 @@ const HomePage = () => {
                         {/* 2. MAIN INFO (Flexes to fill middle space) */}
                         <div className="card-main-info">
                           <h4 title={t.name}>{t.name}</h4>
-                          
+
                           <div className="card-meta1 ">
                             <span className="progress-text">{formatBytes(t.downloadSpeed || 0)}/s</span>
                             <span className="dot-separator">•</span>

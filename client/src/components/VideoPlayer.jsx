@@ -436,7 +436,7 @@ const VideoPlayer = ({
         setShowControls(true);
         clearTimeout(controlsTimeoutRef.current);
         controlsTimeoutRef.current = setTimeout(() => {
-          if (isPlaying && !isScrubbing && !subtitlesEnabled) setShowControls(false);
+          if (isPlaying && !isScrubbing && !showSubtitleMenu) setShowControls(false);
         }, 3000);
       }}
       // onMouseLeave={() => !isScrubbing && isPlaying && setShowControls(false)}
@@ -478,7 +478,6 @@ const VideoPlayer = ({
 
         {/* Right Side Actions Container */}
         <div className="top-bar-actions">
-
           {onClose && (
             <div className="top-action-button video-close-button" onClick={onClose} title="Close">
               <X size={20} />
@@ -673,13 +672,6 @@ const VideoPlayer = ({
                           </span>
                         </button>
                       ))}
-
-                      {/* No online results message */}
-                      {!isSearchingOnline && onlineSubtitles.length === 0 && subtitleFiles.length === 0 && (
-                        <div className="no-subtitles">
-                          Click "Search Online" to find subtitles
-                        </div>
-                      )}
                     </div>
 
                     {/* The "OFF" Button */}

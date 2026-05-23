@@ -27,6 +27,8 @@ router.get('/torrents/:identifier/files', fileController.getTorrentFiles);
 router.get('/torrents/:identifier/files/:fileIdx/stream', fileController.streamFile);
 router.get('/torrents/:identifier/files/:fileIdx/download', fileController.downloadFile);
 router.get('/torrents/:identifier/files/:fileIdx/subtitle', fileController.getSubtitle);
+router.get('/subtitles/search', fileController.searchSubtitles);
+router.get('/subtitles/download', fileController.downloadSubtitle);
 
 // Torrent metadata
 router.get('/torrents/:identifier/stats', metadataController.getTorrentStats);

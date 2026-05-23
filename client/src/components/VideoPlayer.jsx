@@ -45,6 +45,10 @@ const VideoPlayer = ({
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
   const [activeSubtitleIndex, setActiveSubtitleIndex] = useState(0);
+  const [onlineSubtitles, setOnlineSubtitles] = useState([]);
+  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
+  const [currentSubtitle, setCurrentSubtitle] = useState(null);
+  const [subtitleSearchQuery, setSubtitleSearchQuery] = useState('');
 
   // Resume State
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -183,6 +187,8 @@ const VideoPlayer = ({
 
 
 
+
+
   // 1. Hook to manage subtitle visibility natively
   useEffect(() => {
     if (!videoRef.current) return;
@@ -198,6 +204,121 @@ const VideoPlayer = ({
       }
     }
   }, [subtitlesEnabled, activeSubtitleIndex, subtitleFiles]);
+
+
+  // 2. Hook to load online subtitles
+  const loadOnlineSubtitle = useCallback(async (subtitle) => {
+
+    try {
+      console.log(`📥 Loading online subtitle: ${subtitle.language} from ${subtitle.source}`);
+      console.log('📥 Subtitle object:', subtitle);
+
+      let downloadUrl;
+      if (subtitle.fileId) {
+        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?fileId=${encodeURIComponent(subtitle.fileId)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}`;
+      } else if (subtitle.url) {
+        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?url=${encodeURIComponent(subtitle.url)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}`;
+      } else {
+        throw new Error('No fileId or URL available for subtitle');
+      }
+
+      console.log('📥 Fetching subtitle from:', downloadUrl);
+      const response = await fetch(downloadUrl, {
+        headers: { Accept: 'text/vtt, text/plain, */*' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+
+      const subtitleContent = await response.text();
+      console.log('📝 Subtitle content received, length:', subtitleContent.length);
+
+      if (!subtitleContent || subtitleContent.length < 10) {
+        throw new Error('Invalid subtitle content received');
+      }
+
+      // ✅ Ensure valid VTT format
+      let vttContent = subtitleContent;
+      if (!subtitleContent.startsWith('WEBVTT')) {
+        console.log('⚠️ Content is not VTT format, adding header');
+        vttContent = 'WEBVTT\n\n' + subtitleContent.replace(/,/g, '.'); // convert commas to periods
+      }
+
+      // ✅ Create Blob URL
+      const blob = new Blob([vttContent], { type: 'text/vtt; charset=utf-8' });
+      const subtitleUrl = URL.createObjectURL(blob);
+      console.log('📝 Blob URL created:', subtitleUrl);
+
+      const video = videoRef.current;
+      if (!video) throw new Error('Video element not found');
+
+      // ✅ Remove old subtitle tracks and revoke blob URLs
+      const oldTracks = video.querySelectorAll('track');
+      oldTracks.forEach(t => {
+        if (t.src.startsWith('blob:')) URL.revokeObjectURL(t.src);
+        t.remove();
+      });
+
+      // ✅ Create and add track
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.label = `${subtitle.language} (${subtitle.source})`;
+      track.srclang = subtitle.languageCode || subtitle.language.toLowerCase().substring(0, 2);
+      track.src = subtitleUrl;
+      track.default = true;
+      video.appendChild(track);
+
+      // ✅ Ensure subtitles show up after the track loads
+      track.addEventListener('load', () => {
+        const tracks = video.textTracks;
+        if (tracks.length > 0) {
+          [...tracks].forEach(t => (t.mode = 'hidden'));
+          tracks[tracks.length - 1].mode = 'showing';
+          console.log('✅ Subtitles are now showing');
+        }
+      });
+
+      setCurrentSubtitle({
+        ...subtitle,
+        url: subtitleUrl,
+        isOnline: true
+      });
+      setShowSubtitleMenu(false);
+
+    } catch (error) {
+      console.error('❌ Error loading online subtitle:', error);
+      alert(`Failed to load subtitle: ${error.message}`);
+    }
+  }, []);
+
+  // 3. Hook to search for online subtitles
+  const searchOnlineSubtitles = async (searchQuery) => {
+    // Prevent searching if no title exists or already searching
+    if (!searchQuery || isSearchingOnline) return;
+
+    setIsSearchingOnline(true);
+    setOnlineSubtitles([]); // Clear previous results
+
+    try {
+      console.log(`🔍 Searching for subtitles: ${searchQuery}`);
+
+      const response = await fetch(`${config.apiBaseUrl}/api/subtitles/search?query=${encodeURIComponent(searchQuery)}`);
+
+      if (!response.ok) throw new Error('Search failed');
+
+      const results = await response.json();
+
+      console.log(`✅ Found ${results.length} subtitles`);
+      setOnlineSubtitles(results);
+
+    } catch (error) {
+      console.error('❌ Error searching subtitles:', error);
+      alert('Failed to search for subtitles. Please check your connection or try again later.');
+    } finally {
+      setIsSearchingOnline(false);
+    }
+  };
 
   // ==========================================
   // 3. SAFE SCRUBBING & GESTURES
@@ -475,51 +596,110 @@ const VideoPlayer = ({
               )}
             </div>
             {/* Subtitles Menu */}
-            {subtitleFiles.length > 0 && (
-              <div className="subtitle-menu">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowSubtitleMenu(!showSubtitleMenu); }}
-                  className={`control-button ${subtitlesEnabled ? 'active' : ''}`}
-                >
-                  <Subtitles size={18} />
-                </button>
 
-                {showSubtitleMenu && (
-                  <div className="subtitle-dropdown" onClick={(e) => e.stopPropagation()}>
-                    <div className="subtitle-section">
-                      <span>Subtitles</span>
+            <div className="subtitle-menu">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowSubtitleMenu(!showSubtitleMenu); }}
+                className={`control-button ${subtitlesEnabled ? 'active' : ''}`}
+              >
+                <Subtitles size={18} />
+              </button>
 
-                      {/* The "OFF" Button */}
+              {showSubtitleMenu && (
+                <div className="subtitle-dropdown" onClick={(e) => e.stopPropagation()}>
+                  <div className="subtitle-section">
+                    <span>Subtitles</span>
+
+                    {/* Loop through all files and create a button for each one */}
+                    {subtitleFiles.length > 0 && subtitleFiles.map((sub, idx) => (
                       <button
-                        className={`subtitle-option ${!subtitlesEnabled ? 'active' : ''}`}
+                        key={sub.index}
+                        className={`subtitle-option ${subtitlesEnabled && activeSubtitleIndex === idx ? 'active' : ''}`}
                         onClick={() => {
-                          setSubtitlesEnabled(false);
+                          setActiveSubtitleIndex(idx);
+                          setSubtitlesEnabled(true);
                           setShowSubtitleMenu(false);
                         }}
                       >
-                       Disbale subtitles
+                        {sub.name || `Track ${idx + 1}`}
                       </button>
+                    ))}
 
-                      {/* Loop through all files and create a button for each one */}
-                      {subtitleFiles.map((sub, idx) => (
-                        <button
-                          key={sub.index}
-                          className={`subtitle-option ${subtitlesEnabled && activeSubtitleIndex === idx ? 'active' : ''}`}
-                          onClick={() => {
-                            setActiveSubtitleIndex(idx);
-                            setSubtitlesEnabled(true);
-                            setShowSubtitleMenu(false);
+                    <div className="subtitle-section">
+                      <span>Online Search</span>
+
+                      {/* Search input field */}
+                      <div className="subtitle-search-input">
+                        <input
+                          type="text"
+                          placeholder="Type to search subtitles..."
+                          value={subtitleSearchQuery}
+                          onChange={(e) => setSubtitleSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && subtitleSearchQuery.trim()) {
+                              searchOnlineSubtitles(subtitleSearchQuery.trim());
+                            }
                           }}
+                        />
+                        <button
+                          onClick={() => {
+                            if (subtitleSearchQuery.trim()) {
+                              searchOnlineSubtitles(subtitleSearchQuery.trim());
+                            }
+                          }}
+                          className="search-button"
+                          disabled={isSearchingOnline || !subtitleSearchQuery.trim()}
                         >
-                          {sub.name || `Track ${idx + 1}`}
+                          {isSearchingOnline ? (
+                            <Loader2 size={16} className="spinning" />
+                          ) : (
+                            <Search size={16} />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Online subtitle results */}
+                      {onlineSubtitles.map((subtitle, index) => (
+                        <button
+                          key={`online-${index}`}
+                          onClick={() => loadOnlineSubtitle(subtitle)}
+                          className={`subtitle-option ${currentSubtitle?.url === subtitle.url ? 'active' : ''}`}
+                          title={`${subtitle.language} (${subtitle.source})`}
+                        >
+                          <span className="online-subtitle-text">
+                            <Globe size={16} />
+
+                            {subtitle.language} ({subtitle.source})
+                          </span>
                         </button>
                       ))}
 
+                      {/* No online results message */}
+                      {!isSearchingOnline && onlineSubtitles.length === 0 && subtitleFiles.length === 0 && (
+                        <div className="no-subtitles">
+                          Click "Search Online" to find subtitles
+                        </div>
+                      )}
                     </div>
+
+                    {/* The "OFF" Button */}
+                    <button
+                      className={`subtitle-option ${!subtitlesEnabled ? 'active' : ''}`}
+                      onClick={() => {
+                        setSubtitlesEnabled(false);
+                        setShowSubtitleMenu(false);
+                      }}
+                    >
+                      Disbale subtitles
+                    </button>
+
+
+
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+
 
             {/* Settings Menu */}
             <div className="settings-menu">

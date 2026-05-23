@@ -194,6 +194,83 @@ const getSubtitle = async (req, res) => {
   }
 };
 
+// 1. SEARCH ENDPOINT
+const searchSubtitles = async (req, res) => {
+  const { query } = req.query;
+  
+  if (!query) return res.status(400).json({ error: 'Search query required' });
+
+  try {
+    // We search for English by default, but you can pass languages as a parameter
+    const response = await fetch(`https://api.opensubtitles.com/api/v1/subtitles?query=${encodeURIComponent(query)}&languages=en`, {
+      headers: {
+        'Api-Key': process.env.OPENSUBTITLES_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+
+    if (!data.data) return res.json([]);
+
+    // Map the complex API response into a clean, simple array for your React frontend
+    const results = data.data.map(sub => ({
+      fileId: sub.attributes.files[0].file_id,
+      filename: sub.attributes.files[0].file_name,
+      language: sub.attributes.language,
+      languageCode: sub.attributes.language,
+      source: 'OpenSubtitles'
+    }));
+
+    res.json(results);
+  } catch (error) {
+    console.error('Subtitle search error:', error);
+    res.status(500).json({ error: 'Failed to search subtitles' });
+  }
+};
+
+// 2. DOWNLOAD ENDPOINT
+
+// OpenSubtitles requires a POST request to get a download link, then we fetch the actual file.
+const downloadSubtitle = async (req, res) => {
+  const { fileId } = req.query;
+
+  if (!fileId) return res.status(400).send('fileId is required');
+
+  try {
+    // Step A: Request the secure download link from OpenSubtitles
+    const linkResponse = await fetch('https://api.opensubtitles.com/api/v1/download', {
+      method: 'POST',
+      headers: {
+        'Api-Key': process.env.OPENSUBTITLES_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'seedbox-lite v1.0'
+      },
+      body: JSON.stringify({ file_id: parseInt(fileId, 10) })
+    });
+
+    const linkData = await linkResponse.json();
+
+    if (!linkData.link) {
+      return res.status(404).send('Download link not generated');
+    }
+
+    // Step B: Fetch the actual subtitle file content from the provided link
+    const fileResponse = await fetch(linkData.link);
+    const subtitleText = await fileResponse.text();
+
+    // Send the raw text back to your React frontend
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.send(subtitleText);
+
+  } catch (error) {
+    console.error('Subtitle download error:', error);
+    res.status(500).send('Failed to download subtitle file');
+  }
+};
+
 // ============================================================================
 // STREAM FILE ENDPOINT
 // ============================================================================
@@ -538,6 +615,8 @@ const downloadFile = async (req, res) => {
 module.exports = {
   getTorrentFiles,
   getSubtitle,
+  searchSubtitles,
+  downloadSubtitle,
   streamFile,
   downloadFile
 };

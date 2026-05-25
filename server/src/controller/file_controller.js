@@ -20,7 +20,8 @@
 
 const { client } = require('../torrent_client');
 const { universalTorrentResolver } = require('../utils/torrent_utils');
-
+const fs = require('fs').promises;
+const path = require('path');
 // ============================================================================
 // GET TORRENT FILES ENDPOINT
 // ============================================================================
@@ -124,46 +125,62 @@ const getTorrentFiles = async (req, res) => {
  */
 const getSubtitle = async (req, res) => {
   const { identifier, fileIdx } = req.params;
-  
+  const isLocal = req.query.isLocal === 'true'; // Allow frontend to tell us it's a local file
+
   if (process.env.DEBUG === 'true') {
-    console.log(`📝 [SUBTITLE] Request for: ${identifier}/${fileIdx}`);
+    console.log(`📝 [SUBTITLE] Request for: ${identifier}/${fileIdx} (Local: ${isLocal})`);
   }
 
   try {
-    const torrent = await universalTorrentResolver(identifier);
-    if (!torrent) {
-      console.log(`❌ [SUBTITLE] Torrent not found: ${identifier}`);
-      return res.status(404).send('Torrent not found');
-    }
-    
-    const file = torrent.files[parseInt(fileIdx, 10)];
-    if (!file) {
-      console.log(`❌ [SUBTITLE] File not found: ${fileIdx}`);
-      return res.status(404).send('File not found');
-    }
-
-    // ADD THESE CORS HEADERS SO THE BROWSER DOESN'T BLOCK THE TRACK
-    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    // 1. Set standard headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-
     res.setHeader('Content-Type', 'text/vtt; charset=utf-8');
-    
-    console.log(`📝 [SUBTITLE] Serving: ${file.name}`);
-    
-    // If it's already vtt, stream as is
-    if (file.name.endsWith('.vtt')) {
-      const stream = file.createReadStream();
-      return stream.pipe(res);
+
+    let stream;
+    let fileName = fileIdx;
+
+    // 2. Determine where to get the stream from (Local Disk vs Torrent Buffer)
+    if (isLocal) {
+      const fsStream = require('fs');
+      const filePath = path.join(__dirname, 'subtitles', identifier, fileIdx);
+
+      if (!fsStream.existsSync(filePath)) {
+        console.log(`❌ [SUBTITLE] Local file not found: ${filePath}`);
+        return res.status(404).send('Local subtitle not found');
+      }
+
+      stream = fsStream.createReadStream(filePath);
+    } else {
+      // It's a torrent subtitle, read from torrent stream
+      const torrent = await universalTorrentResolver(identifier);
+      if (!torrent) {
+        console.log(`❌ [SUBTITLE] Torrent not found: ${identifier}`);
+        return res.status(404).send('Torrent not found');
+      }
+
+      const file = torrent.files[parseInt(fileIdx, 10)];
+      if (!file) {
+        console.log(`❌ [SUBTITLE] File not found: ${fileIdx}`);
+        return res.status(404).send('File not found');
+      }
+
+      fileName = file.name;
+      stream = file.createReadStream();
+
+      // If it's already vtt, pipe it directly and exit
+      if (fileName.endsWith('.vtt')) {
+        return stream.pipe(res);
+      }
     }
-    
-    // Convert SRT to VTT
+
+    // 3. Convert SRT to VTT on the fly for BOTH local and torrent streams
     res.write('WEBVTT\n\n');
-    const stream = file.createReadStream();
-    
+
     let remainder = '';
     stream.on('data', (chunk) => {
       let text = remainder + chunk.toString('utf8');
-      
+
       const lastNewline = text.lastIndexOf('\n');
       if (lastNewline !== -1) {
         remainder = text.substring(lastNewline + 1);
@@ -172,22 +189,24 @@ const getSubtitle = async (req, res) => {
         remainder = text;
         text = '';
       }
-      
+
+      // Convert time format 00:00:00,000 to 00:00:00.000
       text = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
       res.write(text);
     });
-    
+
     stream.on('end', () => {
       if (remainder) {
         res.write(remainder.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2'));
       }
       res.end();
     });
-    
+
     stream.on('error', (err) => {
       console.error(`❌ [SUBTITLE] Streaming error:`, err.message);
       if (!res.headersSent) res.status(500).send('Error streaming subtitle');
     });
+
   } catch (error) {
     console.error(`❌ [SUBTITLE] Failed:`, error.message);
     res.status(500).send('Server error');
@@ -197,7 +216,7 @@ const getSubtitle = async (req, res) => {
 // 1. SEARCH ENDPOINT
 const searchSubtitles = async (req, res) => {
   const { query } = req.query;
-  
+
   if (!query) return res.status(400).json({ error: 'Search query required' });
 
   try {
@@ -234,9 +253,11 @@ const searchSubtitles = async (req, res) => {
 
 // OpenSubtitles requires a POST request to get a download link, then we fetch the actual file.
 const downloadSubtitle = async (req, res) => {
-  const { fileId } = req.query;
+  // Destructure torrentHash from the request
+  const { fileId, torrentHash, filename } = req.query;
 
   if (!fileId) return res.status(400).send('fileId is required');
+  if (!torrentHash) return res.status(400).send('torrentHash is required');
 
   try {
     // Step A: Request the secure download link from OpenSubtitles
@@ -257,9 +278,19 @@ const downloadSubtitle = async (req, res) => {
       return res.status(404).send('Download link not generated');
     }
 
-    // Step B: Fetch the actual subtitle file content from the provided link
+    // Step B: Fetch the actual subtitle file content
     const fileResponse = await fetch(linkData.link);
     const subtitleText = await fileResponse.text();
+
+    // Step C: Save the subtitle to the file system
+    const subDir = path.join(__dirname, 'subtitles', torrentHash);
+    await fs.mkdir(subDir, { recursive: true });
+
+    const safeFileName = filename || `subtitle_${fileId}.srt`;
+    const filePath = path.join(subDir, safeFileName);
+
+    // Write the file to disk
+    await fs.writeFile(filePath, subtitleText, 'utf8');
 
     // Send the raw text back to your React frontend
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -507,7 +538,7 @@ const streamFile = async (req, res) => {
  */
 const downloadFile = async (req, res) => {
   const { identifier, fileIdx } = req.params;
-  
+
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📥 [DOWNLOAD] Request: ${identifier}/${fileIdx}`);
   console.log(`   - IP: ${req.ip}`);

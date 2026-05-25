@@ -215,9 +215,9 @@ const VideoPlayer = ({
 
       let downloadUrl;
       if (subtitle.fileId) {
-        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?fileId=${encodeURIComponent(subtitle.fileId)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}`;
+        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?fileId=${encodeURIComponent(subtitle.fileId)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}&torrentHash=${encodeURIComponent(torrentHash)}`;
       } else if (subtitle.url) {
-        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?url=${encodeURIComponent(subtitle.url)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}`;
+        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?url=${encodeURIComponent(subtitle.url)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}&torrentHash=${encodeURIComponent(torrentHash)}`;
       } else {
         throw new Error('No fileId or URL available for subtitle');
       }
@@ -456,16 +456,24 @@ const VideoPlayer = ({
         playsInline
         crossOrigin="anonymous"
       >
-        {subtitleFiles.map((sub, idx) => (
-          <track
-            key={sub.index}
-            kind="subtitles"
-            src={`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${sub.index}/subtitle`}
-            srcLang="en"
-            label={sub.name}
-            default={idx === 0}
-          />
-        ))}
+        {subtitleFiles.map((sub, idx) => {
+          // 1. Conditionally build the URL based on the backend logic we set up
+          const subtitleUrl = sub.isLocalSubtitle
+            ? `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${encodeURIComponent(sub.fileName)}/subtitle?isLocal=true`
+            : `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${sub.index}/subtitle`;
+
+          return (
+            <track
+              // Use fileName as a fallback key just in case local subs share an index
+              key={sub.index || sub.fileName}
+              kind="subtitles"
+              src={subtitleUrl}
+              srcLang="en"
+              label={sub.name}
+              default={idx === 0}
+            />
+          );
+        })}
 
       </video>
 

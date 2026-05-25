@@ -16,6 +16,7 @@
 
 const multer = require('multer');
 const fs = require('fs');
+const path = require('path');
 const fsPromises = require('fs').promises;
 const parseTorrent = require('parse-torrent');
 const { client, torrents, torrentIds, torrentNames, hashToName, nameToHash, imdbCache, detailsCache, isCloud } = require('../torrent_client');
@@ -54,13 +55,13 @@ console.log(`📁 [TORRENT CONTROLLER] File upload configured (max: 5MB)`);
  */
 const addTorrent = async (req, res) => {
   const { torrentId } = req.body;
-  
+
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`➕ [TORRENT ADD] Request received`);
   console.log(`   - Torrent ID: ${torrentId ? torrentId.substring(0, 50) + '...' : 'MISSING'}`);
   console.log(`   - IP: ${req.ip}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  
+
   if (!torrentId) {
     console.log(`❌ [TORRENT ADD] Failed: No torrentId provided`);
     return res.status(400).json({ error: 'No torrentId provided' });
@@ -85,7 +86,7 @@ const addTorrent = async (req, res) => {
     console.log(`🔄 [TORRENT ADD] Loading new torrent...`);
     const newTorrent = await loadTorrentFromId(torrentId);
     console.log(`✅ [TORRENT ADD] Torrent loaded successfully: ${newTorrent.name}`);
-    
+
     return res.json({
       success: true,
       infoHash: newTorrent.infoHash,
@@ -371,7 +372,7 @@ const getTorrentDetails = async (req, res) => {
 
     if (process.env.DEBUG === 'true') console.log(`🎯 [TORRENT DETAILS] Resolving: ${identifier}`);
 
-    const torrent = universalTorrentResolver(identifier);
+    const torrent = await universalTorrentResolver(identifier);
 
     if (!torrent) {
       // O(1) Performance fix for suggestions: Don't use Object.values()
@@ -391,16 +392,50 @@ const getTorrentDetails = async (req, res) => {
       });
     }
 
+    // --- NEW: Read local downloaded subtitles ---
+    let localSubtitles = [];
+
+    try {
+      const subDir = path.join(__dirname, 'subtitles', identifier);
+
+      // EXPLICITLY use the promises API right here to guarantee it works
+      const fsPromises = require('fs').promises;
+
+      const subFiles = await fsPromises.readdir(subDir);
+
+      for (const file of subFiles) {
+        const stats = await fsPromises.stat(path.join(subDir, file));
+        localSubtitles.push({
+          name: `${torrent.name}/${file}`,
+          length: stats.size,
+          downloaded: stats.size,
+          progress: 1,
+          isLocalSubtitle: true,
+          fileName: file
+        });
+      }
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        console.error('Error reading subtitles directory:', err);
+      }
+    }
+
+    // --- NEW: Combine torrent files with our local subtitle files ---
+    const torrentFilesArray = torrent.files || [];
+    const allFiles = [...torrentFilesArray, ...localSubtitles];
+
     // 2. Map data
     const maxFilesToShow = 1000;
-    const files = torrent.files
+    const files = allFiles
       .slice(0, maxFilesToShow)
       .map((file, index) => ({
         index,
         name: file.name,
         size: file.length || 0,
-        downloaded: file.downloaded || 0,
-        progress: file.progress || 0
+        downloaded: file.downloaded || file.length || 0, // Fallback to length for subtitles
+        progress: file.progress !== undefined ? file.progress : 1, // Default to 1 for subtitles
+        isLocalSubtitle: file.isLocalSubtitle || false,
+        fileName: file.fileName || null
       }));
 
     const response = {
@@ -414,11 +449,11 @@ const getTorrentDetails = async (req, res) => {
         downloadSpeed: torrent.downloadSpeed || 0,
         uploadSpeed: torrent.uploadSpeed || 0,
         peers: torrent.numPeers || 0,
-        files: torrent.files?.length || 0,
+        files: allFiles.length, // Updated to reflect combined file count
         addedAt: torrent.addedAt || new Date().toISOString()
       },
       files,
-      filesTotal: torrent.files?.length || 0,
+      filesTotal: allFiles.length, // Updated to reflect combined file count
       filesShown: files.length
     };
 
@@ -449,7 +484,7 @@ const getTorrentDetails = async (req, res) => {
  */
 const removeTorrent = async (req, res) => {
   const identifier = req.params.identifier.toLowerCase();
-  
+
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`🗑️ [REMOVE TORRENT] Request received`);
   console.log(`   - Identifier: ${identifier}`);

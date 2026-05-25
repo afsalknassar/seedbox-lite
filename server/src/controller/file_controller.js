@@ -286,7 +286,7 @@ const downloadSubtitle = async (req, res) => {
     const subDir = path.join(__dirname, 'subtitles', torrentHash);
     await fs.mkdir(subDir, { recursive: true });
 
-    const safeFileName = filename || `subtitle_${fileId}.srt`;
+    const safeFileName = `${filename}.srt` || `subtitle_${fileId}.srt`;
     const filePath = path.join(subDir, safeFileName);
 
     // Write the file to disk

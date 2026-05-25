@@ -676,7 +676,7 @@ const VideoPlayer = ({
                           <span className="online-subtitle-text">
                             <Globe size={16} />
 
-                            {subtitle.language} ({subtitle.source})
+                            {subtitle.language} ({subtitle.filename})
                           </span>
                         </button>
                       ))}

@@ -7,6 +7,7 @@ import {
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
 import '../assets/styles/VideoPlayer.css';
+import VLC_ICON from '../assets/vlc.webp';
 
 const VideoPlayer = ({
   src, title, onTimeUpdate, initialTime = 0, torrentHash = null, fileIndex = null, onClose = null, subtitleFiles = []
@@ -721,12 +722,33 @@ const VideoPlayer = ({
                     ))}
                   </div>
 
+                  <div className="settings-section1 vlc-section">
+                    <span>External Player</span>
+                    <button
+                      type="button"
+                      className="vlc-button "
+                      onClick={() => {
+                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${mainVideoFile.index}/playlist`;
+                        const element = document.createElement('a');
+                        element.href = url;
+                        element.download = 'playlist.m3u';
+                        document.body.appendChild(element);
+                        element.click();
+                        document.body.removeChild(element);
+                      }}
+                    >
+                      <img src={VLC_ICON} alt="VLC Icon" style={{ width: '20px', height: '20px' }} />
+                    </button>
+                  </div>
+
+
                   <div className="settings-section1 mobile-only-settings">
                     <span>Audio</span>
                     <button className="settings-option" onClick={toggleMute}>
                       {isMuted || volume === 0 ? 'Unmute' : 'Mute'}
                     </button>
                   </div>
+
                 </div>
               )}
             </div>
@@ -735,22 +757,24 @@ const VideoPlayer = ({
             <button onClick={toggleFullscreen} className="control-button"><Maximize size={18} /></button>
           </div>
         </div>
-      </div>
+      </div >
 
       {/* Resume Dialog */}
-      {showResumeDialog && resumeData && (
-        <div className="resume-dialog-overlay" onClick={(e) => e.stopPropagation()}>
-          <div className="resume-dialog">
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Resume Playback?</h3>
-            <p style={{ margin: '0 0 16px 0', color: '#a1a1aa', fontSize: '14px' }}>Continue from {formatTime(resumeData.currentTime)}</p>
-            <div className="resume-actions">
-              <button onClick={() => { videoRef.current.currentTime = 0; setShowResumeDialog(false); }} className="resume-button secondary">Restart</button>
-              <button onClick={() => { videoRef.current.currentTime = resumeData.currentTime; setShowResumeDialog(false); }} className="resume-button primary">Resume</button>
+      {
+        showResumeDialog && resumeData && (
+          <div className="resume-dialog-overlay" onClick={(e) => e.stopPropagation()}>
+            <div className="resume-dialog">
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Resume Playback?</h3>
+              <p style={{ margin: '0 0 16px 0', color: '#a1a1aa', fontSize: '14px' }}>Continue from {formatTime(resumeData.currentTime)}</p>
+              <div className="resume-actions">
+                <button onClick={() => { videoRef.current.currentTime = 0; setShowResumeDialog(false); }} className="resume-button secondary">Restart</button>
+                <button onClick={() => { videoRef.current.currentTime = resumeData.currentTime; setShowResumeDialog(false); }} className="resume-button primary">Resume</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

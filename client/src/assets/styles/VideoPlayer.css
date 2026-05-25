@@ -858,3 +858,29 @@
   border-color: rgba(255, 255, 255, 0.1);
   color: #71717a;
 }
+
+.vlc-button {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top:10px;
+}
+
+.vlc-button:hover {
+  background: #333;
+}
+
+.vlc-button:active {
+  background: #444;
+}
+
+.vlc-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vlc-section {
+  padding: 1px;
+  margin-bottom: 24px;
+}
+

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HardDrive, Search, Folder, File, ChevronDown, ChevronUp, CloudUpload, Link as LinkIcon, CheckCircle, Send, AlertCircle } from 'lucide-react';
+import { HardDrive, Search, Folder, File, ChevronDown, ChevronUp, CloudUpload, Link as LinkIcon, CheckCircle, Send, AlertCircle, Activity, Users } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { config } from '../config/environment';
-import '../assets/styles/HomePage.css';
 import '../assets/styles/FilesPage.css';
 
 const FilesPage = () => {
@@ -246,19 +245,17 @@ const FilesPage = () => {
   );
 
   return (
-    <div className="home-container files-container" style={{ height: '100%', overflowY: 'auto' }}>
-      <div className="history-section server-cache-section" style={{ marginTop: 0 }}>
-        <div className="section-header-glass">
-          <div className="header-title-group">
-            <div className="history-title">
-              <HardDrive size={22} />
-            </div>
-            <h2>Server Files</h2>
+    <div className="fp-container">
+      <div className="fp-header-glass">
+        <div className="fp-title-group">
+          <div className="fp-title-icon">
+            <HardDrive size={24} color="#fff" />
           </div>
+          <h2>Server Files</h2>
         </div>
 
-        <div className="history-search">
-          <Search size={18} className="search-icon" />
+        <div className="fp-search">
+          <Search size={18} className="fp-search-icon" />
           <input
             type="text"
             placeholder="Search torrents..."
@@ -266,212 +263,202 @@ const FilesPage = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+      </div>
 
-        {loading ? (
-          <div className="loading-helper-text">Loading files...</div>
-        ) : filteredTorrents.length > 0 ? (
-          <div className="modern-cache-grid" style={{ gridTemplateColumns: '1fr' }}>
-            {filteredTorrents.map((t) => {
-              const percent = t.progress ? (t.progress * 100).toFixed(1) : 0;
-              const isTorrentComplete = t.progress >= 1;
+      {loading ? (
+        <div className="fp-empty-state">
+          <div className="fp-loading-spinner"></div>
+          <p>Loading files...</p>
+        </div>
+      ) : filteredTorrents.length > 0 ? (
+        <div className="fp-grid">
+          {filteredTorrents.map((t) => {
+            const percent = t.progress ? (t.progress * 100).toFixed(1) : 0;
+            const isTorrentComplete = t.progress >= 1;
 
-              return (
+            return (
+              <div key={t.infoHash} className="fp-card">
                 <div 
-                  key={t.infoHash} 
-                  className="modern-cache-card" 
-                  // CRITICAL FIX: position relative added for absolute progress bar
-                  style={{ position: 'relative', height: 'auto', display: 'flex', flexDirection: 'column', paddingBottom: expandedTorrents[t.infoHash] ? '0' : '16px' }}
+                  className="fp-card-top" 
+                  onClick={() => toggleTorrent(t.infoHash)}
                 >
-                  <div 
-                    className="card-top-row" 
-                    onClick={() => toggleTorrent(t.infoHash)}
-                    style={{ cursor: 'pointer', marginBottom: expandedTorrents[t.infoHash] ? '16px' : '0' }}
-                  >
-                    <div className="card-poster">
-                      {t.poster && t.poster !== 'N/A' ? (
-                        <img src={t.poster} alt={t.name} referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="poster-placeholder">
-                          <span>No Img</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="card-main-info">
-                      <h4 title={t.name}>{t.name}</h4>
-                      <div className="card-meta1 ">
-                        <span className="progress-text">{formatBytes(t.downloadSpeed || 0)}/s</span>
-                        <span className="dot-separator">•</span>
-                        <span className="progress-text">{t.peers || 0} peers</span>
-                      </div>
-                      <div className="card-meta">
-                        <span className="total-text">{formatBytes(t.size)}</span>
-                      </div>
-                    </div>
-                    
-                    <button className="btn-remove" style={{ padding: '8px' }}>
-                      {expandedTorrents[t.infoHash] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                    </button>
+                  <div className="fp-poster">
+                    {t.poster && t.poster !== 'N/A' ? (
+                      <img src={t.poster} alt={t.name} referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="fp-poster-placeholder">No Img</div>
+                    )}
                   </div>
                   
-                  {expandedTorrents[t.infoHash] && (
-                    <div className="torrent-files-list" style={{ margin: '0 -16px', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', paddingBottom: '24px' }}>
-                      {!torrentFiles[t.infoHash] ? (
-                        <div className="loading-sm">Loading files...</div>
-                      ) : torrentFiles[t.infoHash].length === 0 ? (
-                        <div className="empty-sm">No files found</div>
-                      ) : (
-                        torrentFiles[t.infoHash].map((file) => {
-                          const driveStatus = uploadStatus[`${t.infoHash}-${file.index}`];
-                          const tgStatus = uploadStatus[`tg-${t.infoHash}-${file.index}`];
-                          
-                          const tgNeedsDelay = !isTorrentComplete && file.size > 2 * 1024 * 1024 * 1024;
+                  <div className="fp-main-info">
+                    <h4 title={t.name}>{t.name}</h4>
+                    <div className="fp-meta">
+                      <div className="fp-meta-item">
+                        <Activity size={14} />
+                        <span>{formatBytes(t.downloadSpeed || 0)}/s</span>
+                      </div>
+                      <span className="fp-dot">•</span>
+                      <div className="fp-meta-item">
+                        <Users size={14} />
+                        <span>{t.peers || 0} peers</span>
+                      </div>
+                      <span className="fp-dot">•</span>
+                      <div className="fp-meta-item">
+                        <HardDrive size={14} />
+                        <span>{formatBytes(t.size)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button className="fp-toggle-btn">
+                    {expandedTorrents[t.infoHash] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+                </div>
+                
+                {expandedTorrents[t.infoHash] && (
+                  <div className="fp-files-list">
+                    {!torrentFiles[t.infoHash] ? (
+                      <div className="fp-loading-sm">Loading files...</div>
+                    ) : torrentFiles[t.infoHash].length === 0 ? (
+                      <div className="fp-empty-sm">No files found</div>
+                    ) : (
+                      torrentFiles[t.infoHash].map((file) => {
+                        const driveStatus = uploadStatus[`${t.infoHash}-${file.index}`];
+                        const tgStatus = uploadStatus[`tg-${t.infoHash}-${file.index}`];
+                        
+                        const tgNeedsDelay = !isTorrentComplete && file.size > 2 * 1024 * 1024 * 1024;
 
-                          // Helper to render the correct UI state without overlapping
-                          const renderFileActions = () => {
-                            // Helper for Drive
-                            const renderDriveAction = () => {
-                              if (driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing') {
-                                return (
-                                  <div className="upload-progress">
-                                    <div className="progress-bar-sm">
-                                      <div className="progress-fill-sm" style={{ width: `${driveStatus.progress || 0}%` }}></div>
-                                    </div>
-                                    <span>{driveStatus.progress || 0}%</span>
-                                  </div>
-                                );
-                              }
-                              if (driveStatus?.status === 'completed') {
-                                return (
-                                  <a href={driveStatus.link} target="_blank" rel="noopener noreferrer" className="btn-success-sm">
-                                    <CheckCircle size={14} /> Drive Link
-                                  </a>
-                                );
-                              }
-                              if (driveStatus?.status === 'failed') {
-                                return (
-                                  <div className="upload-error" style={{ color: '#ff4d4f', fontSize: '0.85rem', display: 'flex', alignItems: 'center' }}>
-                                    <AlertCircle size={14} style={{ marginRight: '4px' }} />
-                                    <span title={driveStatus.error || 'Upload failed'}>Failed</span>
-                                    <button 
-                                      className="btn-upload-drive" 
-                                      style={{ marginLeft: '8px', padding: '4px 8px', background: 'rgba(255, 77, 79, 0.2)', border: '1px solid #ff4d4f' }}
-                                      onClick={() => handleUploadClick(t.infoHash, file.index)}
-                                    >
-                                      Retry
-                                    </button>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <button 
-                                  className="btn-upload-drive" 
-                                  onClick={() => handleUploadClick(t.infoHash, file.index)}
-                                  title="Upload to Google Drive"
-                                >
-                                  <CloudUpload size={16} /> Drive
-                                </button>
-                              );
-                            };
-
-                            // Helper for Telegram
-                            const renderTgAction = () => {
-                              if (tgStatus?.status === 'uploading' || tgStatus?.status === 'splitting' || tgStatus?.status === 'initializing') {
-                                return (
-                                  <div className="upload-progress">
-                                    <div className="progress-bar-sm">
-                                      <div className="progress-fill-sm" style={{ background: '#0088cc', width: `${tgStatus.progress || 0}%` }}></div>
-                                    </div>
-                                    <span style={{ minWidth: '45px' }}>
-                                      {tgStatus.status === 'splitting' || tgStatus.status === 'initializing'
-                                        ? 'Preparing' 
-                                        : `Pt ${tgStatus.currentPart}/${tgStatus.totalParts}`
-                                      }
-                                    </span>
-                                  </div>
-                                );
-                              }
-                              if (tgStatus?.status === 'completed') {
-                                return (
-                                  <a href="https://web.telegram.org/" target="_blank" rel="noopener noreferrer" className="btn-success-sm" style={{ borderColor: '#0088cc', color: '#0088cc' }}>
-                                    <CheckCircle size={14} /> Sent to TG
-                                  </a>
-                                );
-                              }
-                              if (tgStatus?.status === 'failed') {
-                                return (
-                                  <div className="upload-error" style={{ color: '#ff4d4f', fontSize: '0.85rem', display: 'flex', alignItems: 'center' }}>
-                                    <AlertCircle size={14} style={{ marginRight: '4px' }} />
-                                    <span title={tgStatus.error || 'Upload failed'}>Failed</span>
-                                    <button 
-                                      className="btn-upload-tg" 
-                                      style={{ marginLeft: '8px', padding: '4px 8px', background: 'rgba(255, 77, 79, 0.2)', border: '1px solid #ff4d4f' }}
-                                      onClick={() => startTelegramUpload(t.infoHash, file.index)}
-                                    >
-                                      Retry
-                                    </button>
-                                  </div>
-                                );
-                              }
-                              return (
-                                <button 
-                                  className={`btn-upload-tg ${tgNeedsDelay ? 'disabled' : ''}`}
-                                  onClick={() => {
-                                    if (tgNeedsDelay) {
-                                      alert('Files larger than 2GB can only be sent to Telegram after the torrent is 100% downloaded.');
-                                      return;
-                                    }
-                                    startTelegramUpload(t.infoHash, file.index);
-                                  }}
-                                  title={tgNeedsDelay ? ">2GB files require full download first" : "Send to Telegram"}
-                                >
-                                  <Send size={16} /> TG
-                                </button>
-                              );
-                            };
-
+                        const renderDriveAction = () => {
+                          if (driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing') {
                             return (
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                {renderDriveAction()}
-                                {renderTgAction()}
+                              <div className="fp-upload-progress">
+                                <div className="fp-mini-progress-bar">
+                                  <div className="fp-mini-progress-fill" style={{ width: `${driveStatus.progress || 0}%` }}></div>
+                                </div>
+                                <span>{driveStatus.progress || 0}%</span>
                               </div>
                             );
-                          };
-
+                          }
+                          if (driveStatus?.status === 'completed') {
+                            return (
+                              <a href={driveStatus.link} target="_blank" rel="noopener noreferrer" className="fp-btn-success">
+                                <CheckCircle size={16} /> Drive Link
+                              </a>
+                            );
+                          }
+                          if (driveStatus?.status === 'failed') {
+                            return (
+                              <div className="fp-upload-error">
+                                <AlertCircle size={14} />
+                                <span title={driveStatus.error || 'Upload failed'}>Failed</span>
+                                <button 
+                                  className="fp-btn-retry" 
+                                  onClick={() => handleUploadClick(t.infoHash, file.index)}
+                                >
+                                  Retry
+                                </button>
+                              </div>
+                            );
+                          }
                           return (
-                            <div key={file.index} className="file-item">
-                              <div className="file-details">
-                                <File size={16} className="file-icon" />
-                                <span className="file-name" title={file.name}>{file.name}</span>
-                                <span className="file-size">{formatBytes(file.size)}</span>
-                              </div>
-                              <div className="file-actions">
-                                {renderFileActions()}
-                              </div>
-                            </div>
+                            <button 
+                              className="fp-btn-drive" 
+                              onClick={() => handleUploadClick(t.infoHash, file.index)}
+                              title="Upload to Google Drive"
+                            >
+                              <CloudUpload size={16} /> Drive
+                            </button>
                           );
-                        })
-                      )}
-                    </div>
-                  )}
+                        };
 
-                  {/* Visual Progress Bar */}
-                  <div className="progress-bar-container" style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-                    <div className="progress-bar-fill" style={{ width: `${percent}%` }}></div>
+                        const renderTgAction = () => {
+                          if (tgStatus?.status === 'uploading' || tgStatus?.status === 'splitting' || tgStatus?.status === 'initializing') {
+                            return (
+                              <div className="fp-upload-progress">
+                                <div className="fp-mini-progress-bar">
+                                  <div className="fp-mini-progress-fill tg" style={{ width: `${tgStatus.progress || 0}%` }}></div>
+                                </div>
+                                <span>
+                                  {tgStatus.status === 'splitting' || tgStatus.status === 'initializing'
+                                    ? 'Preparing' 
+                                    : `Pt ${tgStatus.currentPart}/${tgStatus.totalParts}`
+                                  }
+                                </span>
+                              </div>
+                            );
+                          }
+                          if (tgStatus?.status === 'completed') {
+                            return (
+                              <a href="https://web.telegram.org/" target="_blank" rel="noopener noreferrer" className="fp-btn-success" style={{ color: '#0ea5e9', borderColor: 'rgba(14, 165, 233, 0.3)', background: 'rgba(14, 165, 233, 0.1)' }}>
+                                <CheckCircle size={16} /> Sent to TG
+                              </a>
+                            );
+                          }
+                          if (tgStatus?.status === 'failed') {
+                            return (
+                              <div className="fp-upload-error">
+                                <AlertCircle size={14} />
+                                <span title={tgStatus.error || 'Upload failed'}>Failed</span>
+                                <button 
+                                  className="fp-btn-retry" 
+                                  onClick={() => startTelegramUpload(t.infoHash, file.index)}
+                                >
+                                  Retry
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <button 
+                              className={`fp-btn-tg ${tgNeedsDelay ? 'fp-disabled' : ''}`}
+                              onClick={() => {
+                                if (tgNeedsDelay) {
+                                  alert('Files larger than 2GB can only be sent to Telegram after the torrent is 100% downloaded.');
+                                  return;
+                                }
+                                startTelegramUpload(t.infoHash, file.index);
+                              }}
+                              title={tgNeedsDelay ? ">2GB files require full download first" : "Send to Telegram"}
+                            >
+                              <Send size={16} /> TG
+                            </button>
+                          );
+                        };
+
+                        return (
+                          <div key={file.index} className="fp-file-item">
+                            <div className="fp-file-details">
+                              <File size={18} className="fp-file-icon" />
+                              <span className="fp-file-name" title={file.name}>{file.name}</span>
+                              <span className="fp-file-size">{formatBytes(file.size)}</span>
+                            </div>
+                            <div className="fp-file-actions">
+                              {renderDriveAction()}
+                              {renderTgAction()}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
+                )}
+
+                <div className="fp-progress-container">
+                  <div className="fp-progress-fill" style={{ width: `${percent}%` }}></div>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="fp-empty-state">
+          <div className="fp-empty-icon">
+            <HardDrive size={48} />
           </div>
-        ) : (
-          <div className="empty-glass-state mt-4">
-            <div className="empty-icon-wrapper">
-              <HardDrive size={32} />
-            </div>
-            <p>No active files currently hosted on the server.</p>
-          </div>
-        )}
-      </div>
+          <h3>No Files Found</h3>
+          <p>There are no active files currently hosted on the server.</p>
+        </div>
+      )}
     </div>
   );
 };

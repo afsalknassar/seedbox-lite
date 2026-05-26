@@ -8,8 +8,47 @@
 
 .page-header {
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fp-title-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.fp-title-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.22), rgba(249, 115, 22, 0.12));
+  border: 1px solid rgba(251, 146, 60, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(251, 146, 60, 0.14);
+  flex-shrink: 0;
+}
+
+.fp-title-group h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.3px;
+}
+
+.fp-subtitle {
+  font-size: 13px;
+  color: #475569;
+  padding-left: 60px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .header-content h1 {
@@ -214,7 +253,9 @@
   flex-direction: column;
 }
 
-.welcome-state, .loading-state, .empty-state {
+.welcome-state,
+.loading-state,
+.empty-state {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -279,8 +320,13 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .feed-items {
@@ -324,7 +370,8 @@
   gap: 12px;
 }
 
-.link-btn, .copy-btn {
+.link-btn,
+.copy-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -371,13 +418,13 @@
     overflow: visible;
     gap: 16px;
   }
-  
+
   .rss-sidebar {
     width: 100%;
     max-height: none;
     flex-shrink: 0;
   }
-  
+
   .feeds-list {
     max-height: 250px;
   }
@@ -392,24 +439,25 @@
     overflow-y: visible;
     padding: 16px;
   }
-  
+
   .feed-view-header {
     padding: 16px;
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
+
   .feed-article h3 {
     font-size: 15px;
   }
-  
+
   .article-actions {
     flex-direction: column;
     gap: 8px;
   }
-  
-  .link-btn, .copy-btn {
+
+  .link-btn,
+  .copy-btn {
     width: 100%;
     justify-content: center;
     padding: 10px;

@@ -27,23 +27,23 @@ const RssReaderPage = () => {
       const response = await fetch(config.getApiUrl(`/api/rss/fetch?url=${encodeURIComponent(feed.url)}`));
       if (!response.ok) throw new Error('Failed to fetch RSS feed');
       const data = await response.json();
-      
+
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(data.contents, "text/xml");
-      
+
       const items = Array.from(xmlDoc.querySelectorAll("item")).map(item => {
         let link = item.querySelector("link")?.textContent || '';
         // Some feeds put magnet links in enclosure
         const enclosure = item.querySelector("enclosure");
         if (enclosure && enclosure.getAttribute("url")?.startsWith("magnet:")) {
-            link = enclosure.getAttribute("url");
+          link = enclosure.getAttribute("url");
         }
-        
+
         return {
-            title: item.querySelector("title")?.textContent || 'No title',
-            link: link,
-            pubDate: item.querySelector("pubDate")?.textContent || '',
-            description: item.querySelector("description")?.textContent || '',
+          title: item.querySelector("title")?.textContent || 'No title',
+          link: link,
+          pubDate: item.querySelector("pubDate")?.textContent || '',
+          description: item.querySelector("description")?.textContent || '',
         };
       });
       setFeedItems(items);
@@ -78,12 +78,14 @@ const RssReaderPage = () => {
   return (
     <div className="rss-reader-page">
       <div className="page-header">
-        <div className="header-content">
-          <h1>
+        <div className="fp-title-group">
+          <div className="fp-title-icon">
             <Rss size={28} />
-            RSS Reader
-          </h1>
-          <p>Add RSS feeds to discover new torrents and content</p>
+          </div>
+          <h2>RSS Reader</h2>
+        </div>
+        <div className="fp-subtitle">
+          Add RSS feeds to discover new torrents automatically
         </div>
       </div>
 
@@ -91,8 +93,8 @@ const RssReaderPage = () => {
         <div className="rss-sidebar">
           <div className="sidebar-header">
             <h2>Your Feeds</h2>
-            <button 
-              className="add-feed-button" 
+            <button
+              className="add-feed-button"
               onClick={() => setShowAddForm(!showAddForm)}
             >
               <Plus size={16} /> Add Feed
@@ -127,8 +129,8 @@ const RssReaderPage = () => {
               <div className="no-feeds">No feeds added yet.</div>
             ) : (
               feeds.map(feed => (
-                <div 
-                  key={feed.id} 
+                <div
+                  key={feed.id}
                   className={`feed-item ${activeFeed?.id === feed.id ? 'active' : ''}`}
                   onClick={() => loadFeed(feed)}
                 >
@@ -172,7 +174,7 @@ const RssReaderPage = () => {
                           </a>
                         )}
                         {item.link && (item.link.startsWith('magnet:') || item.link.includes('torrent')) && (
-                          <button 
+                          <button
                             className="copy-btn"
                             onClick={() => {
                               navigator.clipboard.writeText(item.link);

@@ -15,7 +15,7 @@ export const config = {
   // API Configuration
   apiBaseUrl: normalizeUrl(API_BASE_URL),
   apikeyTorrentclaw: import.meta.env.VITE_APIKEY_TORRENTCLAW,
-  googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID ,
+  googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
   
   // API Endpoints
   api: {

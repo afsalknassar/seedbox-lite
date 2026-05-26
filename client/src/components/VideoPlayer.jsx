@@ -726,9 +726,9 @@ const VideoPlayer = ({
                     <span>External Player</span>
                     <button
                       type="button"
-                      className="vlc-button "
+                      className="settings-option"
                       onClick={() => {
-                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${mainVideoFile.index}/playlist`;
+                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}/playlist`;
                         const element = document.createElement('a');
                         element.href = url;
                         element.download = 'playlist.m3u';

@@ -4,11 +4,10 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import HomePage from './components/HomePage';
 import TorrentPageNetflix from './components/TorrentPageNetflix';
-import RecentPage from './components/RecentPage';
-import SettingsPage from './components/SettingsPage';
-import CacheManagementPage from './components/CacheManagementPage';
-import SearchSourcesPage from './components/SearchSourcesPage';
+import RssReaderPage from './components/RssReaderPage';
 import LoginScreen from './components/LoginScreen';
+import FilesPage from './components/FilesPage';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import './App.css';
 
 const AuthenticatedApp = () => {
@@ -56,10 +55,8 @@ const AuthenticatedApp = () => {
         {/* Main app with sidebar layout */}
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
-          <Route path="recent" element={<RecentPage />} />
-          <Route path="search" element={<SearchSourcesPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="cache" element={<CacheManagementPage />} />
+          <Route path="rss" element={<RssReaderPage />} />
+          <Route path="files" element={<FilesPage />} />
         </Route>
       </Routes>
     </Router>
@@ -67,10 +64,13 @@ const AuthenticatedApp = () => {
 };
 
 function App() {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id.apps.googleusercontent.com';
   return (
-    <AuthProvider>
-      <AuthenticatedApp />
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={clientId}>
+      <AuthProvider>
+        <AuthenticatedApp />
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 

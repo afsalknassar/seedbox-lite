@@ -8,6 +8,7 @@ import RssReaderPage from './components/RssReaderPage';
 import LoginScreen from './components/LoginScreen';
 import FilesPage from './components/FilesPage';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { config } from './config/environment';
 import './App.css';
 
 const AuthenticatedApp = () => {
@@ -64,7 +65,7 @@ const AuthenticatedApp = () => {
 };
 
 function App() {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id.apps.googleusercontent.com';
+  const clientId = config.googleClientId;
   return (
     <GoogleOAuthProvider clientId={clientId}>
       <AuthProvider>

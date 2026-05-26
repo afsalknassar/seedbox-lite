@@ -14,6 +14,9 @@ router.get('/health', authController.getHealth);
 // Authentication
 router.post('/auth/login', authController.login);
 
+// Configuration
+router.get('/config', authController.getConfig);
+
 // Torrent management
 router.post('/torrents', torrentController.addTorrent);
 router.post('/torrents/upload', ...torrentController.uploadTorrent);

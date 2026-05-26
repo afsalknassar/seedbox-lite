@@ -70,11 +70,31 @@ const login = (req, res) => {
   }
 };
 
+/**
+ * Get configuration endpoint
+ * Returns configuration data to the client
+ */
+const getConfig = (req, res) => {
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`⚙️ CONFIGURATION REQUEST`);
+  console.log(`   - IP Address: ${req.ip}`);
+  console.log(`   - Timestamp: ${new Date().toISOString()}`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID,
+    apiBaseUrl: process.env.API_BASE_URL
+  });
+};
+
+
+
 // ============================================================================
 // EXPORTS
 // ============================================================================
 
 module.exports = {
   getHealth,
-  login
+  login,
+  getConfig
 };

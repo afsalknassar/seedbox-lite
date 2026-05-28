@@ -186,8 +186,23 @@ const getActiveUploads = (req, res) => {
   res.json(result);
 };
 
+const cancelUpload = (req, res) => {
+  const { uploadId } = req.params;
+  const state = activeUploads.get(uploadId);
+  if (state) {
+    state.status = 'failed';
+    state.error = 'Cancelled by user';
+    // We can also remove it entirely after a small delay
+    setTimeout(() => activeUploads.delete(uploadId), 5000);
+    res.json({ success: true, message: 'Upload cancelled' });
+  } else {
+    res.status(404).json({ error: 'Upload not found or already completed' });
+  }
+};
+
 module.exports = {
   uploadToDrive,
   uploadProgressSSE,
-  getActiveUploads
+  getActiveUploads,
+  cancelUpload
 };

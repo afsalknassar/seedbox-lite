@@ -147,7 +147,7 @@ const Layout = () => {
 
         {!sidebarCollapsed && (
           <div className="cache-stats">
-            <div  className="cache-link">
+            <Link to="/files"  className="cache-link">
 
               {/* Top Row: Icon, Title, and Percentage Badge */}
               <div className="cache-header">
@@ -175,7 +175,7 @@ const Layout = () => {
                 <span>{cacheStats.activeTorrents} active</span>
               </div>
 
-            </div>
+            </Link>
           </div>
         )}
 

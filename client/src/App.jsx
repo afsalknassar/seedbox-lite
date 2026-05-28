@@ -13,10 +13,10 @@ import { config } from './config/environment.js';
 
 // 1. Reusable spinner component
 const FullScreenLoader = ({ text }) => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     height: '100vh',
     background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
     color: '#ffffff'

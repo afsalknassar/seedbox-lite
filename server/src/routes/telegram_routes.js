@@ -11,4 +11,7 @@ router.get('/progress/:uploadId', telegramController.telegramProgressSSE);
 // Get active uploads
 router.get('/active', telegramController.getActiveTelegramUploads);
 
+// Cancel upload
+router.post('/cancel/:uploadId', telegramController.cancelUpload);
+
 module.exports = router;

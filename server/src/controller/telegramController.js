@@ -281,8 +281,23 @@ const getActiveTelegramUploads = (req, res) => {
   res.json(active);
 };
 
+const cancelUpload = (req, res) => {
+  const { uploadId } = req.params;
+  const state = activeTgUploads.get(uploadId);
+  if (state) {
+    state.status = 'failed';
+    state.error = 'Cancelled by user';
+    // We can also remove it entirely after a small delay
+    setTimeout(() => activeTgUploads.delete(uploadId), 5000);
+    res.json({ success: true, message: 'Upload cancelled' });
+  } else {
+    res.status(404).json({ error: 'Upload not found or already completed' });
+  }
+};
+
 module.exports = {
   uploadToTelegram,
   telegramProgressSSE,
-  getActiveTelegramUploads
+  getActiveTelegramUploads,
+  cancelUpload
 };

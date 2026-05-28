@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward,
   Settings, Download, Loader2, Users, Activity, Wifi, WifiOff,
-  TrendingUp, TrendingDown, Subtitles, Languages, Search, Globe, X, Minimize2
+  TrendingUp, TrendingDown, Subtitles, Languages, Search, Globe, X, Minimize2,
+  Server, AlertTriangle
 } from 'lucide-react';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
@@ -415,11 +416,47 @@ const VideoPlayer = ({
     setShowSettings(false);
   };
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     const container = videoRef.current.parentElement;
-    if (!document.fullscreenElement) container.requestFullscreen?.() || container.webkitRequestFullscreen?.();
-    else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
-    setIsFullscreen(!document.fullscreenElement);
+    if (!document.fullscreenElement) {
+      try {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+          container.webkitRequestFullscreen();
+        }
+      } catch (e) {
+        console.error('Fullscreen request error:', e);
+      }
+
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+          await window.screen.orientation.lock('landscape');
+        }
+      } catch (e) {
+        console.log('Orientation lock error:', e);
+      }
+      setIsFullscreen(true);
+    } else {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+      } catch (e) {
+        console.error('Fullscreen exit error:', e);
+      }
+
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+          window.screen.orientation.unlock();
+        }
+      } catch (e) {
+        console.log('Orientation unlock error:', e);
+      }
+      setIsFullscreen(false);
+    }
   };
 
   const formatTime = (time) => {
@@ -544,7 +581,49 @@ const VideoPlayer = ({
         </div>
       )}
 
-
+      {isLoading && (
+        <div className={`buffering-reason-toast ${showControls ? 'with-controls' : 'without-controls'}`}>
+            {(() => {
+              if (torrentStats.progress < 1) {
+                return (
+                  <div className="toast-content-row">
+                    <div className="toast-primary-reason toast-color-download"><Download size={14} /> <span>Downloading to Server</span></div>
+                    <span className="hide-on-mobile toast-secondary-stat">Speed: {(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
+                  </div>
+                );
+              }
+              const bitrate = (torrentStats.size && duration) ? ((torrentStats.size * 8 / (1024 * 1024)) / duration) : 0;
+              const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+              const dl = conn ? conn.downlink : null;
+              if (bitrate > 0) {
+                if (dl) {
+                  if (dl < bitrate) {
+                    return (
+                      <div className="toast-content-row">
+                        <div className="toast-primary-reason toast-color-network"><WifiOff size={14} /> <span>Slow Network</span></div>
+                        <span className="hide-on-mobile toast-secondary-stat">Your Speed: ~{dl} Mbps | Video Needs: ~{bitrate.toFixed(1)} Mbps</span>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className="toast-content-row">
+                        <div className="toast-primary-reason toast-color-server"><Server size={14} /> <span>Server Bottleneck</span></div>
+                        <span className="hide-on-mobile toast-secondary-stat">Your Speed: ~{dl} Mbps | Video Needs: ~{bitrate.toFixed(1)} Mbps</span>
+                      </div>
+                    );
+                  }
+                }
+                return (
+                  <div className="toast-content-row">
+                    <div className="toast-primary-reason toast-color-warning"><AlertTriangle size={14} /> <span>Network or Server Issue</span></div>
+                    <span className="hide-on-mobile toast-secondary-stat">Video Needs: ~{bitrate.toFixed(1)} Mbps</span>
+                  </div>
+                );
+              }
+              return <div className="toast-primary-reason"><Loader2 size={14} className="spinning" /> <span>Waiting for data...</span></div>;
+            })()}
+        </div>
+      )}
 
       {/* FLOATING CONTROL PILL */}
       <div className={`video-controls ${showControls ? 'visible' : ''}`} onClick={(e) => e.stopPropagation()}>
@@ -571,7 +650,7 @@ const VideoPlayer = ({
             <div className="progress-played" style={{ width: `${(displayTime / duration) * 100}%` }} />
             <div className="progress-thumb" style={{ left: `${(displayTime / duration) * 100}%` }} />
             {torrentStats.progress > 0 && (
-              <div className="progress-torrent" style={{ width: `${torrentStats.progress}%` }} />
+              <div className="progress-torrent" style={{ width: `${torrentStats.progress * 100}%` }} />
             )}
           </div>
         </div>

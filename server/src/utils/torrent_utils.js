@@ -121,40 +121,22 @@ function cleanTorrentName(torrentName) {
 function generateSearchCandidates(torrentName) {
   console.log(`\n🧹 [CANDIDATE GEN] Analyzing: "${torrentName}"`);
 
-  // 1. Remove file extension and any leading tracker tags (e.g., "[www.YTS.mx]")
-  let cleaned = torrentName
-    .replace(/\.[a-z0-9]{2,4}$/i, '') 
-    .replace(/^\[.*?\]\s*/, '');
-
-  // 2. Extract Year & Series Status
+  let cleaned = torrentName.replace(/(?:www\.|https?:\/\/)[^\s]+|\b[a-zA-Z0-9]+\.[a-z]{2,8}\b(?:\s*-\s*)?/gi, '').replace(/\.[a-z0-9]{3,4}$/i, '');
   const yearMatch = cleaned.match(/\b(19\d{2}|20\d{2})\b/);
   const year = yearMatch ? yearMatch[0] : null;
-  const isLikelySeries = /\b([Ss]\d{1,2}[Ee]\d{1,2}|[Ss]\d{1,2}|Season|Episode)\b/i.test(cleaned);
-
-  // 3. Define the boundary where the title ends and file metadata begins
-  // Note: I added 'IMAX' to the quality list just in case it precedes the year.
-  const boundaryRegex = /(?:\b(19\d{2}|20\d{2})\b|\b([Ss]\d{1,2}[Ee]\d{1,2}|[Ss]\d{1,2})\b|\b(Season|Episode)\b|\b(480p|720p|1080p|2160p|4[Kk]|8[Kk]|IMAX)\b|\b(HDR|WEBRip|WEB-DL|BluRay|BDRip|CAM|TS|Malayalam|Tamil|Hindi|Telugu|HQ)\b)/i;
+  const isLikelySeries = /\b([Ss]\d{1,2}|Season|Episode)\b/i.test(torrentName);
+  const boundaryRegex = /(?:\b(19\d{2}|20\d{2})\b|\b([Ss]\d{1,2}[Ee]\d{1,2}|[Ss]\d{1,2})\b|\b(Season|Episode)\b|\b(480p|720p|1080p|2160p|4[Kk]|8[Kk])\b|\b(HDR|WEBRip|WEB-DL|BluRay|BDRip|CAM|TS|Malayalam|Tamil|Hindi|Telugu|HQ)\b)/i;
 
   const match = cleaned.match(boundaryRegex);
-
-  // 4. Extract the raw title up to the boundary match
   let rawTitle = match ? cleaned.substring(0, match.index) : cleaned;
 
-  // Safeguard: If the movie title IS a year (e.g., "2012.1080p..."), rawTitle will be empty.
-  if (rawTitle.trim() === '' && match) {
-    rawTitle = match[0]; 
-  }
-
-  // 5. Replace structural characters with spaces and clean it up
   let baseTitle = rawTitle.replace(/[\._\-\(\)\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
-  
   const candidates = [baseTitle];
   const words = baseTitle.split(' ');
 
-  // 6. Generate fallback candidates
   if (words.length > 2) {
     candidates.push(words.slice(1).join(' ')); // Drop 1st word
-    if (words.length > 3) candidates.push(words.slice(2).join(' ')); // Drop 1st & 2nd word
+    if (words.length > 3) candidates.push(words.slice(2).join(' ')); // Drop 1st and 2nd word
   }
 
   console.log(`🎯 [CANDIDATE GEN] Generated ${candidates.length} candidates:`, candidates);

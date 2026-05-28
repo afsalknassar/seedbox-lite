@@ -524,157 +524,109 @@
 .saas-progress-fill.drive { background: #10b981; }
 .saas-progress-fill.tg { background: #38bdf8; }
 
-/* Upload Buttons Redesign */
-.saas-upload-btn, .saas-upload-success, .saas-upload-error {
-  display: flex;
+/* =============================================
+   MINIMAL ACTION TEXT BUTTONS
+============================================= */
+
+/* Base text button */
+.saas-action-text-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
   text-decoration: none;
-  border: 1px solid transparent;
-  position: relative;
-  overflow: hidden;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-/* Base Drive Button */
-.saas-upload-btn.drive {
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0,0,0,0.1);
+/* Play */
+.saas-action-text-btn.play {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
 }
-.saas-upload-btn.drive:hover {
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.1) 100%);
-  border-color: rgba(16, 185, 129, 0.4);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 8px rgba(16, 185, 129, 0.15);
-}
-.saas-upload-btn.drive:active {
-  transform: translateY(0);
+.saas-action-text-btn.play:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
 }
 
-/* Base Telegram Button */
-.saas-upload-btn.tg {
-  background: linear-gradient(180deg, rgba(14, 165, 233, 0.15) 0%, rgba(14, 165, 233, 0.05) 100%);
-  color: #38bdf8;
-  border: 1px solid rgba(14, 165, 233, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0,0,0,0.1);
-}
-.saas-upload-btn.tg:hover {
-  background: linear-gradient(180deg, rgba(14, 165, 233, 0.25) 0%, rgba(14, 165, 233, 0.1) 100%);
-  border-color: rgba(14, 165, 233, 0.4);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 8px rgba(14, 165, 233, 0.15);
-}
-.saas-upload-btn.tg:active {
-  transform: translateY(0);
-}
-
-.saas-upload-btn.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-/* Success Group Container (Link + Reupload) */
-.saas-success-group {
-  display: flex;
-  align-items: stretch;
-  background: rgba(16, 185, 129, 0.05);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 8px;
-  overflow: hidden;
-  transition: all 0.3s;
-}
-.saas-success-group:hover {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.3);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
-}
-
-/* Success Link */
-.saas-upload-success {
-  background: transparent;
-  color: #10b981;
-  padding: 6px 12px;
-  border: none;
-  border-radius: 0;
-}
-.saas-upload-success:hover {
-  background: rgba(16, 185, 129, 0.1);
+/* Drive upload */
+.saas-action-text-btn.drive {
+  background: rgba(16, 185, 129, 0.12);
   color: #34d399;
 }
-
-.saas-success-group:has(.saas-upload-success.tg) {
-  background: rgba(14, 165, 233, 0.05);
-  border-color: rgba(14, 165, 233, 0.2);
-}
-.saas-success-group:has(.saas-upload-success.tg):hover {
-  background: rgba(14, 165, 233, 0.08);
-  border-color: rgba(14, 165, 233, 0.3);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+.saas-action-text-btn.drive:hover {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
 }
 
-.saas-upload-success.tg {
+/* Telegram upload */
+.saas-action-text-btn.tg {
+  background: rgba(56, 189, 248, 0.12);
   color: #38bdf8;
 }
-.saas-upload-success.tg:hover {
-  background: rgba(14, 165, 233, 0.1);
+.saas-action-text-btn.tg:hover {
+  background: rgba(56, 189, 248, 0.22);
   color: #7dd3fc;
 }
 
-.saas-success-divider {
-  width: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 4px 0;
+/* Completed */
+.saas-action-text-btn.done {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+.saas-action-text-btn.done:hover {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+}
+.saas-action-text-btn.done.tg {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+.saas-action-text-btn.done.tg:hover {
+  background: rgba(56, 189, 248, 0.22);
+  color: #7dd3fc;
 }
 
-/* Reupload Button */
-.saas-reupload-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
+/* Muted */
+.saas-action-text-btn.muted {
+  background: rgba(148, 163, 184, 0.08);
+  color: #64748b;
+}
+.saas-action-text-btn.muted:hover {
+  background: rgba(148, 163, 184, 0.15);
   color: #94a3b8;
-  padding: 0 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.saas-reupload-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
 }
 
-/* Error States */
-.saas-upload-error {
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%);
+/* Danger */
+.saas-action-text-btn.danger {
+  background: rgba(239, 68, 68, 0.12);
   color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  padding: 6px 12px;
-  cursor: default;
 }
-.saas-upload-error .retry-txt {
-  background: transparent; border: none; color: inherit; text-decoration: underline; cursor: pointer; font-size: inherit; font-family: inherit; padding: 0;
-  transition: color 0.2s;
-}
-.saas-upload-error .retry-txt:hover {
+.saas-action-text-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.22);
   color: #fca5a5;
 }
-.saas-upload-error button {
-  background: transparent; border: none; color: inherit; cursor: pointer; display: flex; align-items: center; padding: 0; margin-left: 4px;
-  opacity: 0.8;
-  transition: opacity 0.2s;
+
+/* Disabled state */
+.saas-action-text-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
 }
-.saas-upload-error button:hover {
-  opacity: 1;
+
+/* Group containers for done/fail pairs */
+.saas-done-group,
+.saas-fail-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* We removed saas-uploading-pill, relying on separate detailed progress bars now */
@@ -934,10 +886,9 @@
     gap: 12px;
   }
   
-  /* Improve upload button padding for mobile */
-  .saas-upload-btn, 
-  .saas-upload-error {
-    padding: 8px 16px;
-    min-height: 38px;
+  /* Improve action icon touch targets for mobile */
+  .saas-action-icon {
+    width: 38px;
+    height: 38px;
   }
 }

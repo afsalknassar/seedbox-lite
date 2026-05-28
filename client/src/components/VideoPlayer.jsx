@@ -3,7 +3,7 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward,
   Settings, Download, Loader2, Users, Activity, Wifi, WifiOff,
   TrendingUp, TrendingDown, Subtitles, Languages, Search, Globe, X, Minimize2,
-  Server, AlertTriangle
+  Server
 } from 'lucide-react';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
@@ -43,6 +43,14 @@ const VideoPlayer = ({
   const [bufferedPercent, setBufferedPercent] = useState(0);
   const [bufferRanges, setBufferRanges] = useState([]);
 
+  // Robust Buffering Reason State
+  const [bufferingReason, setBufferingReason] = useState(null);
+  const bufferingStartTimeRef = useRef(null);
+  const lastSeekTimeRef = useRef(0);
+  const bufferAheadHistoryRef = useRef([]); // [{time, bufferAhead}] for throughput measurement
+  const prevBufferingReasonRef = useRef(null); // debounce: hold previous reason
+  const reasonStableCountRef = useRef(0); // debounce: how many cycles the new reason has been stable
+
   // Subtitles
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
@@ -61,6 +69,221 @@ const VideoPlayer = ({
   const lastTimeUpdateRef = useRef(0);
   const progressSaveTimerRef = useRef(Date.now());
   const controlsTimeoutRef = useRef(null);
+
+  // ==========================================
+  // ROBUST BUFFERING REASON DIAGNOSTICS
+  // ==========================================
+
+  // Helper: get seconds of data buffered ahead of current playhead
+  const getBufferAhead = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !video.buffered || video.buffered.length === 0) return 0;
+    const ct = video.currentTime;
+    for (let i = 0; i < video.buffered.length; i++) {
+      if (video.buffered.start(i) <= ct && video.buffered.end(i) > ct) {
+        return video.buffered.end(i) - ct;
+      }
+    }
+    return 0;
+  }, []);
+
+  // Helper: estimate real client throughput from buffer-ahead growth (Mbps)
+  const estimateRealThroughput = useCallback(() => {
+    const history = bufferAheadHistoryRef.current;
+    if (history.length < 2) return null;
+    const oldest = history[0];
+    const newest = history[history.length - 1];
+    const elapsedSec = (newest.time - oldest.time) / 1000;
+    if (elapsedSec < 1) return null;
+    const bufferGrowth = newest.bufferAhead - oldest.bufferAhead; // seconds of video gained
+    // If buffer isn't growing, throughput ≈ 0
+    if (bufferGrowth <= 0) return 0;
+    // Rough: bufferGrowth seconds of video arrived in elapsedSec seconds of wall-clock
+    // ratio > 1 means we're downloading faster than real-time
+    return bufferGrowth / elapsedSec; // ratio, not Mbps — we use this comparatively
+  }, []);
+
+  // Core diagnostic function
+  const diagnoseBufferingReason = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return null;
+
+    const now = Date.now();
+    const bufferAhead = getBufferAhead();
+    const timeSinceSeek = now - lastSeekTimeRef.current;
+    const timeSinceBufferingStart = bufferingStartTimeRef.current ? now - bufferingStartTimeRef.current : 0;
+    const torrentProgress = typeof torrentStats.progress === 'number' && !isNaN(torrentStats.progress) ? torrentStats.progress : 0;
+    const torrentDlSpeed = typeof torrentStats.downloadSpeed === 'number' ? torrentStats.downloadSpeed : 0;
+    const peers = typeof torrentStats.peers === 'number' ? torrentStats.peers : 0;
+    const torrentDone = torrentProgress >= 0.999;
+    const videoDuration = video.duration || 0;
+    const fileSize = torrentStats.size || 0;
+
+    // Record buffer-ahead for throughput estimation (keep last 10 samples, ~1s apart)
+    const hist = bufferAheadHistoryRef.current;
+    if (hist.length === 0 || now - hist[hist.length - 1].time >= 500) {
+      hist.push({ time: now, bufferAhead });
+      if (hist.length > 10) hist.shift();
+    }
+
+    // --- Priority 1: Initial load (no data at all yet) ---
+    if (videoDuration === 0 || (video.readyState < 2 && timeSinceBufferingStart < 15000)) {
+      return {
+        type: 'initial',
+        icon: 'loader',
+        label: 'Loading Video...',
+        detail: torrentHash ? (peers > 0 ? `Connected to ${peers} peers` : 'Connecting to peers...') : null,
+        color: 'warning'
+      };
+    }
+
+    // --- Priority 2: Post-seek buffering (normal, expected) ---
+    if (timeSinceSeek < 5000) {
+      return {
+        type: 'seek',
+        icon: 'loader',
+        label: 'Seeking...',
+        detail: bufferAhead > 0 ? `${bufferAhead.toFixed(1)}s buffered` : 'Loading new position',
+        color: 'warning'
+      };
+    }
+
+    // --- Priority 3: Torrent still downloading to server ---
+    if (torrentHash && !torrentDone) {
+      // Check if the buffering is because the torrent hasn't downloaded this section yet
+      const playheadFraction = videoDuration > 0 ? video.currentTime / videoDuration : 0;
+      const isPlayheadBeyondDownloaded = playheadFraction > torrentProgress + 0.02; // 2% margin
+
+      if (isPlayheadBeyondDownloaded) {
+        return {
+          type: 'torrent_ahead',
+          icon: 'download',
+          label: 'Waiting for Download',
+          detail: `Downloaded ${(torrentProgress * 100).toFixed(0)}% · ${(torrentDlSpeed / 1024 / 1024).toFixed(1)} MB/s${peers > 0 ? ` · ${peers} peers` : ''}`,
+          color: 'download'
+        };
+      }
+
+      // Torrent is still downloading but playhead is within downloaded range
+      // Could be server transcoding/serving bottleneck or network issue
+      return {
+        type: 'torrent_downloading',
+        icon: 'download',
+        label: 'Downloading to Server',
+        detail: `${(torrentDlSpeed / 1024 / 1024).toFixed(1)} MB/s · ${(torrentProgress * 100).toFixed(0)}% complete`,
+        color: 'download'
+      };
+    }
+
+    // --- Priority 4: Network analysis (torrent done or no torrent) ---
+    const throughputRatio = estimateRealThroughput();
+    const avgBitrateMbps = (fileSize > 0 && videoDuration > 0)
+      ? (fileSize * 8) / (1024 * 1024) / videoDuration
+      : 0;
+
+    // Use Network Information API as a weak hint (not ground truth)
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const connDownlink = conn?.downlink; // Mbps, can be stale/inaccurate
+    const connEffectiveType = conn?.effectiveType; // '4g', '3g', '2g', 'slow-2g'
+
+    // Check for clearly slow network
+    const isSlowNetwork = (
+      (connEffectiveType && ['slow-2g', '2g', '3g'].includes(connEffectiveType)) ||
+      (connDownlink != null && avgBitrateMbps > 0 && connDownlink < avgBitrateMbps * 0.8) ||
+      (throughputRatio !== null && throughputRatio < 0.5) // buffer growing slower than half real-time
+    );
+
+    if (isSlowNetwork) {
+      const speedInfo = connDownlink != null
+        ? `~${connDownlink} Mbps`
+        : (connEffectiveType ? connEffectiveType.toUpperCase() : 'Low');
+      return {
+        type: 'slow_network',
+        icon: 'wifi_off',
+        label: 'Slow Network',
+        detail: avgBitrateMbps > 0
+          ? `Your speed: ${speedInfo} · Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
+          : `Your speed: ${speedInfo}`,
+        color: 'network'
+      };
+    }
+
+    // --- Priority 5: Server bottleneck (network is fine but still buffering) ---
+    if (torrentDone || !torrentHash) {
+      const isServerSlow = (
+        throughputRatio !== null && throughputRatio < 0.8 && // buffer not growing fast enough
+        (!isSlowNetwork) // we already ruled out client network
+      );
+
+      if (isServerSlow || (timeSinceBufferingStart > 5000 && bufferAhead < 1)) {
+        return {
+          type: 'server',
+          icon: 'server',
+          label: 'Server Bottleneck',
+          detail: avgBitrateMbps > 0
+            ? `Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
+            : 'Server responding slowly',
+          color: 'server'
+        };
+      }
+    }
+
+    // --- Fallback ---
+    return {
+      type: 'generic',
+      icon: 'loader',
+      label: 'Buffering...',
+      detail: bufferAhead > 0 ? `${bufferAhead.toFixed(1)}s buffered` : 'Waiting for data',
+      color: 'warning'
+    };
+  }, [torrentStats, torrentHash, getBufferAhead, estimateRealThroughput]);
+
+  // Effect: run diagnostics while buffering, with debouncing
+  useEffect(() => {
+    if (!isLoading) {
+      // Reset when buffering stops
+      bufferingStartTimeRef.current = null;
+      bufferAheadHistoryRef.current = [];
+      reasonStableCountRef.current = 0;
+      prevBufferingReasonRef.current = null;
+      setBufferingReason(null);
+      return;
+    }
+
+    // Mark buffering start
+    if (!bufferingStartTimeRef.current) {
+      bufferingStartTimeRef.current = Date.now();
+      bufferAheadHistoryRef.current = [];
+    }
+
+    // Run diagnostics on an interval while buffering
+    const intervalId = setInterval(() => {
+      const newReason = diagnoseBufferingReason();
+      if (!newReason) return;
+
+      // Debounce: only update the displayed reason if it's been stable for 2 cycles (1s)
+      if (prevBufferingReasonRef.current?.type === newReason.type) {
+        reasonStableCountRef.current++;
+      } else {
+        reasonStableCountRef.current = 0;
+      }
+      prevBufferingReasonRef.current = newReason;
+
+      // Show immediately on first diagnosis, then debounce changes
+      if (reasonStableCountRef.current >= 1 || !bufferingReason) {
+        setBufferingReason(newReason);
+      }
+    }, 500);
+
+    // Also run immediately
+    const immediateReason = diagnoseBufferingReason();
+    if (immediateReason && !bufferingReason) {
+      setBufferingReason(immediateReason);
+      prevBufferingReasonRef.current = immediateReason;
+    }
+
+    return () => clearInterval(intervalId);
+  }, [isLoading, diagnoseBufferingReason]);
 
   // ==========================================
   // 1. SAFE POLLING & BUFFER HEALTH
@@ -343,6 +566,7 @@ const VideoPlayer = ({
 
   const handleSeekEnd = () => {
     if (!isScrubbing || !videoRef.current) return;
+    lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
     videoRef.current.currentTime = scrubTime;
     setCurrentTime(scrubTime);
     setIsScrubbing(false);
@@ -377,6 +601,7 @@ const VideoPlayer = ({
 
   const handleTouchEnd = () => {
     if (touchRef.current.isSeeking && videoRef.current) {
+      lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
       videoRef.current.currentTime = scrubTime;
       setCurrentTime(scrubTime);
       setSwipeIndicator(null);
@@ -394,6 +619,7 @@ const VideoPlayer = ({
 
   const skip = (seconds) => {
     const video = videoRef.current;
+    lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
     video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seconds));
   };
 
@@ -581,47 +807,20 @@ const VideoPlayer = ({
         </div>
       )}
 
-      {isLoading && (
+      {isLoading && bufferingReason && (
         <div className={`buffering-reason-toast ${showControls ? 'with-controls' : 'without-controls'}`}>
-            {(() => {
-              if (torrentStats.progress < 1) {
-                return (
-                  <div className="toast-content-row">
-                    <div className="toast-primary-reason toast-color-download"><Download size={14} /> <span>Downloading to Server</span></div>
-                    <span className="hide-on-mobile toast-secondary-stat">Speed: {(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
-                  </div>
-                );
-              }
-              const bitrate = (torrentStats.size && duration) ? ((torrentStats.size * 8 / (1024 * 1024)) / duration) : 0;
-              const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-              const dl = conn ? conn.downlink : null;
-              if (bitrate > 0) {
-                if (dl) {
-                  if (dl < bitrate) {
-                    return (
-                      <div className="toast-content-row">
-                        <div className="toast-primary-reason toast-color-network"><WifiOff size={14} /> <span>Slow Network</span></div>
-                        <span className="hide-on-mobile toast-secondary-stat">Your Speed: ~{dl} Mbps | Video Needs: ~{bitrate.toFixed(1)} Mbps</span>
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <div className="toast-content-row">
-                        <div className="toast-primary-reason toast-color-server"><Server size={14} /> <span>Server Bottleneck</span></div>
-                        <span className="hide-on-mobile toast-secondary-stat">Your Speed: ~{dl} Mbps | Video Needs: ~{bitrate.toFixed(1)} Mbps</span>
-                      </div>
-                    );
-                  }
-                }
-                return (
-                  <div className="toast-content-row">
-                    <div className="toast-primary-reason toast-color-warning"><AlertTriangle size={14} /> <span>Network or Server Issue</span></div>
-                    <span className="hide-on-mobile toast-secondary-stat">Video Needs: ~{bitrate.toFixed(1)} Mbps</span>
-                  </div>
-                );
-              }
-              return <div className="toast-primary-reason"><Loader2 size={14} className="spinning" /> <span>Waiting for data...</span></div>;
-            })()}
+          <div className="toast-content-row">
+            <div className={`toast-primary-reason toast-color-${bufferingReason.color}`}>
+              {bufferingReason.icon === 'download' && <Download size={14} />}
+              {bufferingReason.icon === 'wifi_off' && <WifiOff size={14} />}
+              {bufferingReason.icon === 'server' && <Server size={14} />}
+              {bufferingReason.icon === 'loader' && <Loader2 size={14} className="spinning" />}
+              <span>{bufferingReason.label}</span>
+            </div>
+            {bufferingReason.detail && (
+              <span className="hide-on-mobile toast-secondary-stat">{bufferingReason.detail}</span>
+            )}
+          </div>
         </div>
       )}
 

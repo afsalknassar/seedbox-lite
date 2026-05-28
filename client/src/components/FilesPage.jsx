@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HardDrive, Search, File,DownloadCloud, ChevronDown, ChevronRight, CloudUpload, CheckCircle, Send, AlertCircle, Activity, Users, Trash2, Calendar, RefreshCw, XCircle, Database, Play } from 'lucide-react';
+import { HardDrive, Search, File, DownloadCloud, ChevronDown, ChevronRight, CloudUpload, CheckCircle, Send, AlertCircle, Activity, Users, Trash2, Calendar, RefreshCw, XCircle, Database, Play } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
 import { config } from '../config/environment';
@@ -11,7 +11,7 @@ const FilesPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Cache & Torrent State (Polled)
   const [cacheStats, setCacheStats] = useState({
     totalSize: 0,
@@ -40,7 +40,7 @@ const FilesPage = () => {
   useEffect(() => {
     loadCacheStats();
     loadActiveUploads();
-    
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         loadCacheStats();
@@ -184,7 +184,7 @@ const FilesPage = () => {
 
   const toggleTorrent = async (infoHash) => {
     setExpandedTorrents(prev => ({ ...prev, [infoHash]: !prev[infoHash] }));
-    
+
     if (!torrentFiles[infoHash]) {
       try {
         const response = await fetch(config.getApiUrl(`/api/torrents/${infoHash}/files`));
@@ -206,17 +206,17 @@ const FilesPage = () => {
       ]);
 
       let activeData = {};
-      
+
       if (driveRes.ok) {
         const driveData = await driveRes.json();
         activeData = { ...activeData, ...driveData };
       }
-      
+
       if (tgRes.ok) {
         const tgData = await tgRes.json();
         activeData = { ...activeData, ...tgData };
       }
-        
+
       setUploadStatus(prev => {
         const newState = { ...prev };
         for (const [uploadId, state] of Object.entries(activeData)) {
@@ -234,7 +234,7 @@ const FilesPage = () => {
 
       for (const [uploadId, state] of Object.entries(activeData)) {
         if (['uploading', 'starting', 'initializing', 'splitting'].includes(state.status)) {
-           attachSSE(uploadId);
+          attachSSE(uploadId);
         }
       }
     } catch (err) {
@@ -271,26 +271,26 @@ const FilesPage = () => {
   const attachSSE = (uploadId) => {
     if (activeEventSources.current.has(uploadId)) return;
 
-    const endpoint = uploadId.startsWith('tg-') 
-      ? `/api/telegram/progress/${uploadId}` 
+    const endpoint = uploadId.startsWith('tg-')
+      ? `/api/telegram/progress/${uploadId}`
       : `/api/drive/progress/${uploadId}`;
 
     const eventSource = new EventSource(config.getApiUrl(endpoint));
     activeEventSources.current.set(uploadId, eventSource);
-    
+
     eventSource.onmessage = (event) => {
       const state = JSON.parse(event.data);
-      
+
       if (state.status === 'not_found' || state.status === 'failed') {
         eventSource.close();
         activeEventSources.current.delete(uploadId);
       }
-      
+
       setUploadStatus(prev => {
         const newState = {
           ...prev,
-          [uploadId]: { 
-            status: state.status, 
+          [uploadId]: {
+            status: state.status,
             progress: state.progress,
             link: state.result?.webViewLink || state.link,
             error: state.error,
@@ -298,16 +298,16 @@ const FilesPage = () => {
             totalParts: state.totalParts
           }
         };
-        
+
         if (state.status === 'completed') {
-          try { localStorage.setItem('driveUploads', JSON.stringify(newState)); } catch (e) {}
+          try { localStorage.setItem('driveUploads', JSON.stringify(newState)); } catch (e) { }
         }
         return newState;
       });
 
       if (state.status === 'completed' || state.status === 'failed') {
         if (state.status === 'failed' && state.error?.toLowerCase().includes('credential')) {
-           setGoogleToken(null);
+          setGoogleToken(null);
         }
         eventSource.close();
         activeEventSources.current.delete(uploadId);
@@ -338,7 +338,7 @@ const FilesPage = () => {
       const data = await response.json();
       attachSSE(data.uploadId);
     } catch (error) {
-      setGoogleToken(null); 
+      setGoogleToken(null);
       setUploadStatus(prev => ({ ...prev, [uploadId]: { status: 'failed', error: error.message } }));
     }
   };
@@ -367,10 +367,10 @@ const FilesPage = () => {
       setUploadStatus(prev => {
         const newState = { ...prev };
         delete newState[uploadId];
-        try { localStorage.setItem('driveUploads', JSON.stringify(newState)); } catch (e) {}
+        try { localStorage.setItem('driveUploads', JSON.stringify(newState)); } catch (e) { }
         return newState;
       });
-      
+
       const source = activeEventSources.current.get(uploadId);
       if (source) {
         source.close();
@@ -391,7 +391,7 @@ const FilesPage = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const filteredTorrents = cacheStats.torrents.filter(t => 
+  const filteredTorrents = cacheStats.torrents.filter(t =>
     t.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -404,7 +404,7 @@ const FilesPage = () => {
 
   return (
     <div className="saas-container">
-      
+
       <header className="saas-header">
         <div className="saas-header-title">
           <div className="saas-title-icon">
@@ -412,13 +412,13 @@ const FilesPage = () => {
           </div>
           <h1>Files</h1>
         </div>
-        
+
         <div className="saas-header-actions">
           <div className="saas-search">
             <Search size={16} />
-            <input 
-              type="text" 
-              placeholder="Search datasets..." 
+            <input
+              type="text"
+              placeholder="Search datasets..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -480,7 +480,7 @@ const FilesPage = () => {
               return (
                 <div key={t.infoHash} className={`saas-row-group ${expandedTorrents[t.infoHash] ? 'expanded' : ''}`}>
                   <div className="saas-row" onClick={() => toggleTorrent(t.infoHash)}>
-                    
+
                     <div className="col-name">
                       <button className="saas-expand-btn">
                         {expandedTorrents[t.infoHash] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -496,13 +496,13 @@ const FilesPage = () => {
                     </div>
 
                     <div className="col-size">{formatBytes(t.size || 0)}</div>
-                    
+
                     <div className="col-metrics">
                       <div className="metric-pill">
-                        <Activity size={12}/> {formatBytes(t.downloadSpeed || 0)}/s
+                        <Activity size={12} /> {formatBytes(t.downloadSpeed || 0)}/s
                       </div>
                       <div className="metric-pill">
-                        <Users size={12}/> {t.peers || 0} peers
+                        <Users size={12} /> {t.peers || 0} peers
                       </div>
                     </div>
 
@@ -551,42 +551,44 @@ const FilesPage = () => {
                                     <span className="file-size-meta">{formatBytes(file.size)}</span>
                                   </div>
                                 </div>
-                                
+
                                 <div className="sub-col-actions">
                                   {isVideo(file.name) && (
-                                    <button 
-                                      className="saas-upload-btn" 
-                                      style={{ backgroundColor: '#e50914', color: 'white', borderColor: '#e50914' }}
+                                    <button
+                                      className="saas-action-text-btn play"
+                                      title="Play Video"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         navigate(`/torrent/${t.infoHash}`);
                                       }}
                                     >
-                                      <Play size={14} fill="currentColor" strokeWidth={0} /> Play
+                                      <Play size={16} />
                                     </button>
                                   )}
                                   {/* Drive Actions */}
                                   {driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing' ? (
                                     null /* handled in progress bar row */
                                   ) : driveStatus?.status === 'completed' ? (
-                                    <div className="saas-success-group">
-                                      <a href={driveStatus.link} target="_blank" rel="noopener noreferrer" className="saas-upload-success">
-                                        <CheckCircle size={14} /> Drive
+                                    <div className="saas-done-group">
+                                      <a href={driveStatus.link} target="_blank" rel="noopener noreferrer" className="saas-action-text-btn done" title="Open in Drive">
+                                        <HardDrive size={16} />
                                       </a>
-                                      <div className="saas-success-divider"></div>
-                                      <button onClick={() => handleUploadClick(t.infoHash, file.index)} className="saas-reupload-btn" title="Reupload">
-                                        <RefreshCw size={14} />
+                                      <button onClick={() => handleUploadClick(t.infoHash, file.index)} className="saas-action-text-btn muted" title="Reupload to Drive">
+                                        <RefreshCw size={16} />
                                       </button>
                                     </div>
                                   ) : driveStatus?.status === 'failed' ? (
-                                    <div className="saas-upload-error">
-                                      <AlertCircle size={14}/> Failed
-                                      <button onClick={() => handleUploadClick(t.infoHash, file.index)} className="retry-txt">Retry</button>
-                                      <button onClick={() => cancelUpload(`${t.infoHash}-${file.index}`, false)}><XCircle size={14}/></button>
+                                    <div className="saas-fail-group">
+                                      <button onClick={() => handleUploadClick(t.infoHash, file.index)} className="saas-action-text-btn danger" title="Retry Drive Upload">
+                                        <RefreshCw size={16} />
+                                      </button>
+                                      <button onClick={() => cancelUpload(`${t.infoHash}-${file.index}`, false)} className="saas-action-text-btn muted" title="Cancel">
+                                        <XCircle size={16} />
+                                      </button>
                                     </div>
                                   ) : (
-                                    <button className="saas-upload-btn drive" onClick={() => handleUploadClick(t.infoHash, file.index)}>
-                                      <CloudUpload size={14} /> Drive
+                                    <button className="saas-action-text-btn drive" title="Upload to Drive" onClick={() => handleUploadClick(t.infoHash, file.index)}>
+                                      <HardDrive size={16} />
                                     </button>
                                   )}
 
@@ -594,34 +596,37 @@ const FilesPage = () => {
                                   {tgStatus?.status === 'uploading' || tgStatus?.status === 'splitting' || tgStatus?.status === 'initializing' ? (
                                     null /* handled in progress bar row */
                                   ) : tgStatus?.status === 'completed' ? (
-                                    <div className="saas-success-group">
-                                      <a href="https://web.telegram.org/" target="_blank" rel="noopener noreferrer" className="saas-upload-success tg">
-                                        <CheckCircle size={14} /> Sent
+                                    <div className="saas-done-group">
+                                      <a href="https://web.telegram.org/" target="_blank" rel="noopener noreferrer" className="saas-action-text-btn done tg" title="Open Telegram">
+                                        <Send size={16} />
                                       </a>
-                                      <div className="saas-success-divider"></div>
-                                      <button 
+                                      <button
                                         onClick={() => {
                                           if (tgNeedsDelay) {
                                             alert('Files larger than 2GB can only be sent to Telegram after the torrent is 100% downloaded.');
                                             return;
                                           }
                                           startTelegramUpload(t.infoHash, file.index);
-                                        }} 
-                                        className="saas-reupload-btn" 
-                                        title="Reupload" 
+                                        }}
+                                        className={`saas-action-text-btn muted ${tgNeedsDelay ? 'disabled' : ''}`}
+                                        title="Reupload to Telegram"
                                       >
-                                        <RefreshCw size={14} />
+                                        <RefreshCw size={16} />
                                       </button>
                                     </div>
                                   ) : tgStatus?.status === 'failed' ? (
-                                    <div className="saas-upload-error">
-                                      <AlertCircle size={14}/> Failed
-                                      <button onClick={() => startTelegramUpload(t.infoHash, file.index)} className="retry-txt">Retry</button>
-                                      <button onClick={() => cancelUpload(`tg-${t.infoHash}-${file.index}`, true)}><XCircle size={14}/></button>
+                                    <div className="saas-fail-group">
+                                      <button onClick={() => startTelegramUpload(t.infoHash, file.index)} className="saas-action-text-btn danger" title="Retry Telegram Upload">
+                                        <RefreshCw size={16} />
+                                      </button>
+                                      <button onClick={() => cancelUpload(`tg-${t.infoHash}-${file.index}`, true)} className="saas-action-text-btn muted" title="Cancel">
+                                        <XCircle size={16} />
+                                      </button>
                                     </div>
                                   ) : (
-                                    <button 
-                                      className={`saas-upload-btn tg ${tgNeedsDelay ? 'disabled' : ''}`} 
+                                    <button
+                                      className={`saas-action-text-btn tg ${tgNeedsDelay ? 'disabled' : ''}`}
+                                      title={tgNeedsDelay ? "File too large to send before download completes" : "Send to Telegram"}
                                       onClick={() => {
                                         if (tgNeedsDelay) {
                                           alert('Files larger than 2GB can only be sent to Telegram after the torrent is 100% downloaded.');
@@ -630,55 +635,55 @@ const FilesPage = () => {
                                         startTelegramUpload(t.infoHash, file.index);
                                       }}
                                     >
-                                      <Send size={14} /> TG
+                                      <Send size={16} />
                                     </button>
                                   )}
                                 </div>
                               </div>
 
                               {/* Separate Progress Bars Container */}
-                              {(driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing' || 
+                              {(driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing' ||
                                 tgStatus?.status === 'uploading' || tgStatus?.status === 'splitting' || tgStatus?.status === 'initializing') && (
-                                <div className="sub-row-progress-container">
-                                  
-                                  {/* Drive Progress Bar */}
-                                  {(driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing') && (
-                                    <div className="detailed-progress drive">
-                                      <div className="prog-header">
-                                        <span>Drive Upload</span>
-                                        <div className="prog-stats">
-                                          <span>{driveStatus.progress || 0}%</span>
-                                          <button onClick={() => cancelUpload(`${t.infoHash}-${file.index}`, false)}><XCircle size={14}/></button>
+                                  <div className="sub-row-progress-container">
+
+                                    {/* Drive Progress Bar */}
+                                    {(driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing') && (
+                                      <div className="detailed-progress drive">
+                                        <div className="prog-header">
+                                          <span>Drive Upload</span>
+                                          <div className="prog-stats">
+                                            <span>{driveStatus.progress || 0}%</span>
+                                            <button onClick={() => cancelUpload(`${t.infoHash}-${file.index}`, false)}><XCircle size={14} /></button>
+                                          </div>
+                                        </div>
+                                        <div className="saas-progress-track">
+                                          <div className="saas-progress-fill drive" style={{ width: `${driveStatus.progress || 0}%` }}></div>
                                         </div>
                                       </div>
-                                      <div className="saas-progress-track">
-                                        <div className="saas-progress-fill drive" style={{ width: `${driveStatus.progress || 0}%` }}></div>
-                                      </div>
-                                    </div>
-                                  )}
+                                    )}
 
-                                  {/* Telegram Progress Bar */}
-                                  {(tgStatus?.status === 'uploading' || tgStatus?.status === 'splitting' || tgStatus?.status === 'initializing') && (
-                                    <div className="detailed-progress tg">
-                                      <div className="prog-header">
-                                        <span>
-                                          Telegram {tgStatus.status === 'splitting' || tgStatus.status === 'initializing' 
-                                            ? '(Preparing)' 
-                                            : `(Part ${tgStatus.currentPart}/${tgStatus.totalParts})`}
-                                        </span>
-                                        <div className="prog-stats">
-                                          <span>{tgStatus.progress || 0}%</span>
-                                          <button onClick={() => cancelUpload(`tg-${t.infoHash}-${file.index}`, true)}><XCircle size={14}/></button>
+                                    {/* Telegram Progress Bar */}
+                                    {(tgStatus?.status === 'uploading' || tgStatus?.status === 'splitting' || tgStatus?.status === 'initializing') && (
+                                      <div className="detailed-progress tg">
+                                        <div className="prog-header">
+                                          <span>
+                                            Telegram {tgStatus.status === 'splitting' || tgStatus.status === 'initializing'
+                                              ? '(Preparing)'
+                                              : `(Part ${tgStatus.currentPart}/${tgStatus.totalParts})`}
+                                          </span>
+                                          <div className="prog-stats">
+                                            <span>{tgStatus.progress || 0}%</span>
+                                            <button onClick={() => cancelUpload(`tg-${t.infoHash}-${file.index}`, true)}><XCircle size={14} /></button>
+                                          </div>
+                                        </div>
+                                        <div className="saas-progress-track">
+                                          <div className="saas-progress-fill tg" style={{ width: `${tgStatus.progress || 0}%` }}></div>
                                         </div>
                                       </div>
-                                      <div className="saas-progress-track">
-                                        <div className="saas-progress-fill tg" style={{ width: `${tgStatus.progress || 0}%` }}></div>
-                                      </div>
-                                    </div>
-                                  )}
+                                    )}
 
-                                </div>
-                              )}
+                                  </div>
+                                )}
                             </div>
                           );
                         })

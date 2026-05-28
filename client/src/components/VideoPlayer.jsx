@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward,
   Settings, Download, Loader2, Users, Activity, Wifi, WifiOff,
-  TrendingUp, TrendingDown, Subtitles, Languages, Search, Globe, X, Minimize2
+  TrendingUp, TrendingDown, Subtitles, Languages, Search, Globe, X, Minimize2,
+  Server
 } from 'lucide-react';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
-import './VideoPlayer.css';
+import '../assets/styles/VideoPlayer.css';
+import VLC_ICON from '../assets/vlc.webp';
 
 const VideoPlayer = ({
   src, title, onTimeUpdate, initialTime = 0, torrentHash = null, fileIndex = null, onClose = null, subtitleFiles = []
@@ -41,10 +43,22 @@ const VideoPlayer = ({
   const [bufferedPercent, setBufferedPercent] = useState(0);
   const [bufferRanges, setBufferRanges] = useState([]);
 
+  // Robust Buffering Reason State
+  const [bufferingReason, setBufferingReason] = useState(null);
+  const bufferingStartTimeRef = useRef(null);
+  const lastSeekTimeRef = useRef(0);
+  const bufferAheadHistoryRef = useRef([]); // [{time, bufferAhead}] for throughput measurement
+  const prevBufferingReasonRef = useRef(null); // debounce: hold previous reason
+  const reasonStableCountRef = useRef(0); // debounce: how many cycles the new reason has been stable
+
   // Subtitles
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
   const [activeSubtitleIndex, setActiveSubtitleIndex] = useState(0);
+  const [onlineSubtitles, setOnlineSubtitles] = useState([]);
+  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
+  const [currentSubtitle, setCurrentSubtitle] = useState(null);
+  const [subtitleSearchQuery, setSubtitleSearchQuery] = useState('');
 
   // Resume State
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -55,6 +69,221 @@ const VideoPlayer = ({
   const lastTimeUpdateRef = useRef(0);
   const progressSaveTimerRef = useRef(Date.now());
   const controlsTimeoutRef = useRef(null);
+
+  // ==========================================
+  // ROBUST BUFFERING REASON DIAGNOSTICS
+  // ==========================================
+
+  // Helper: get seconds of data buffered ahead of current playhead
+  const getBufferAhead = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !video.buffered || video.buffered.length === 0) return 0;
+    const ct = video.currentTime;
+    for (let i = 0; i < video.buffered.length; i++) {
+      if (video.buffered.start(i) <= ct && video.buffered.end(i) > ct) {
+        return video.buffered.end(i) - ct;
+      }
+    }
+    return 0;
+  }, []);
+
+  // Helper: estimate real client throughput from buffer-ahead growth (Mbps)
+  const estimateRealThroughput = useCallback(() => {
+    const history = bufferAheadHistoryRef.current;
+    if (history.length < 2) return null;
+    const oldest = history[0];
+    const newest = history[history.length - 1];
+    const elapsedSec = (newest.time - oldest.time) / 1000;
+    if (elapsedSec < 1) return null;
+    const bufferGrowth = newest.bufferAhead - oldest.bufferAhead; // seconds of video gained
+    // If buffer isn't growing, throughput ≈ 0
+    if (bufferGrowth <= 0) return 0;
+    // Rough: bufferGrowth seconds of video arrived in elapsedSec seconds of wall-clock
+    // ratio > 1 means we're downloading faster than real-time
+    return bufferGrowth / elapsedSec; // ratio, not Mbps — we use this comparatively
+  }, []);
+
+  // Core diagnostic function
+  const diagnoseBufferingReason = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return null;
+
+    const now = Date.now();
+    const bufferAhead = getBufferAhead();
+    const timeSinceSeek = now - lastSeekTimeRef.current;
+    const timeSinceBufferingStart = bufferingStartTimeRef.current ? now - bufferingStartTimeRef.current : 0;
+    const torrentProgress = typeof torrentStats.progress === 'number' && !isNaN(torrentStats.progress) ? torrentStats.progress : 0;
+    const torrentDlSpeed = typeof torrentStats.downloadSpeed === 'number' ? torrentStats.downloadSpeed : 0;
+    const peers = typeof torrentStats.peers === 'number' ? torrentStats.peers : 0;
+    const torrentDone = torrentProgress >= 0.999;
+    const videoDuration = video.duration || 0;
+    const fileSize = torrentStats.size || 0;
+
+    // Record buffer-ahead for throughput estimation (keep last 10 samples, ~1s apart)
+    const hist = bufferAheadHistoryRef.current;
+    if (hist.length === 0 || now - hist[hist.length - 1].time >= 500) {
+      hist.push({ time: now, bufferAhead });
+      if (hist.length > 10) hist.shift();
+    }
+
+    // --- Priority 1: Initial load (no data at all yet) ---
+    if (videoDuration === 0 || (video.readyState < 2 && timeSinceBufferingStart < 15000)) {
+      return {
+        type: 'initial',
+        icon: 'loader',
+        label: 'Loading Video...',
+        detail: torrentHash ? (peers > 0 ? `Connected to ${peers} peers` : 'Connecting to peers...') : null,
+        color: 'warning'
+      };
+    }
+
+    // --- Priority 2: Post-seek buffering (normal, expected) ---
+    if (timeSinceSeek < 5000) {
+      return {
+        type: 'seek',
+        icon: 'loader',
+        label: 'Seeking...',
+        detail: bufferAhead > 0 ? `${bufferAhead.toFixed(1)}s buffered` : 'Loading new position',
+        color: 'warning'
+      };
+    }
+
+    // --- Priority 3: Torrent still downloading to server ---
+    if (torrentHash && !torrentDone) {
+      // Check if the buffering is because the torrent hasn't downloaded this section yet
+      const playheadFraction = videoDuration > 0 ? video.currentTime / videoDuration : 0;
+      const isPlayheadBeyondDownloaded = playheadFraction > torrentProgress + 0.02; // 2% margin
+
+      if (isPlayheadBeyondDownloaded) {
+        return {
+          type: 'torrent_ahead',
+          icon: 'download',
+          label: 'Waiting for Download',
+          detail: `Downloaded ${(torrentProgress * 100).toFixed(0)}% · ${(torrentDlSpeed / 1024 / 1024).toFixed(1)} MB/s${peers > 0 ? ` · ${peers} peers` : ''}`,
+          color: 'download'
+        };
+      }
+
+      // Torrent is still downloading but playhead is within downloaded range
+      // Could be server transcoding/serving bottleneck or network issue
+      return {
+        type: 'torrent_downloading',
+        icon: 'download',
+        label: 'Downloading to Server',
+        detail: `${(torrentDlSpeed / 1024 / 1024).toFixed(1)} MB/s · ${(torrentProgress * 100).toFixed(0)}% complete`,
+        color: 'download'
+      };
+    }
+
+    // --- Priority 4: Network analysis (torrent done or no torrent) ---
+    const throughputRatio = estimateRealThroughput();
+    const avgBitrateMbps = (fileSize > 0 && videoDuration > 0)
+      ? (fileSize * 8) / (1024 * 1024) / videoDuration
+      : 0;
+
+    // Use Network Information API as a weak hint (not ground truth)
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const connDownlink = conn?.downlink; // Mbps, can be stale/inaccurate
+    const connEffectiveType = conn?.effectiveType; // '4g', '3g', '2g', 'slow-2g'
+
+    // Check for clearly slow network
+    const isSlowNetwork = (
+      (connEffectiveType && ['slow-2g', '2g', '3g'].includes(connEffectiveType)) ||
+      (connDownlink != null && avgBitrateMbps > 0 && connDownlink < avgBitrateMbps * 0.8) ||
+      (throughputRatio !== null && throughputRatio < 0.5) // buffer growing slower than half real-time
+    );
+
+    if (isSlowNetwork) {
+      const speedInfo = connDownlink != null
+        ? `~${connDownlink} Mbps`
+        : (connEffectiveType ? connEffectiveType.toUpperCase() : 'Low');
+      return {
+        type: 'slow_network',
+        icon: 'wifi_off',
+        label: 'Slow Network',
+        detail: avgBitrateMbps > 0
+          ? `Your speed: ${speedInfo} · Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
+          : `Your speed: ${speedInfo}`,
+        color: 'network'
+      };
+    }
+
+    // --- Priority 5: Server bottleneck (network is fine but still buffering) ---
+    if (torrentDone || !torrentHash) {
+      const isServerSlow = (
+        throughputRatio !== null && throughputRatio < 0.8 && // buffer not growing fast enough
+        (!isSlowNetwork) // we already ruled out client network
+      );
+
+      if (isServerSlow || (timeSinceBufferingStart > 5000 && bufferAhead < 1)) {
+        return {
+          type: 'server',
+          icon: 'server',
+          label: 'Server Bottleneck',
+          detail: avgBitrateMbps > 0
+            ? `Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
+            : 'Server responding slowly',
+          color: 'server'
+        };
+      }
+    }
+
+    // --- Fallback ---
+    return {
+      type: 'generic',
+      icon: 'loader',
+      label: 'Buffering...',
+      detail: bufferAhead > 0 ? `${bufferAhead.toFixed(1)}s buffered` : 'Waiting for data',
+      color: 'warning'
+    };
+  }, [torrentStats, torrentHash, getBufferAhead, estimateRealThroughput]);
+
+  // Effect: run diagnostics while buffering, with debouncing
+  useEffect(() => {
+    if (!isLoading) {
+      // Reset when buffering stops
+      bufferingStartTimeRef.current = null;
+      bufferAheadHistoryRef.current = [];
+      reasonStableCountRef.current = 0;
+      prevBufferingReasonRef.current = null;
+      setBufferingReason(null);
+      return;
+    }
+
+    // Mark buffering start
+    if (!bufferingStartTimeRef.current) {
+      bufferingStartTimeRef.current = Date.now();
+      bufferAheadHistoryRef.current = [];
+    }
+
+    // Run diagnostics on an interval while buffering
+    const intervalId = setInterval(() => {
+      const newReason = diagnoseBufferingReason();
+      if (!newReason) return;
+
+      // Debounce: only update the displayed reason if it's been stable for 2 cycles (1s)
+      if (prevBufferingReasonRef.current?.type === newReason.type) {
+        reasonStableCountRef.current++;
+      } else {
+        reasonStableCountRef.current = 0;
+      }
+      prevBufferingReasonRef.current = newReason;
+
+      // Show immediately on first diagnosis, then debounce changes
+      if (reasonStableCountRef.current >= 1 || !bufferingReason) {
+        setBufferingReason(newReason);
+      }
+    }, 500);
+
+    // Also run immediately
+    const immediateReason = diagnoseBufferingReason();
+    if (immediateReason && !bufferingReason) {
+      setBufferingReason(immediateReason);
+      prevBufferingReasonRef.current = immediateReason;
+    }
+
+    return () => clearInterval(intervalId);
+  }, [isLoading, diagnoseBufferingReason]);
 
   // ==========================================
   // 1. SAFE POLLING & BUFFER HEALTH
@@ -183,6 +412,8 @@ const VideoPlayer = ({
 
 
 
+
+
   // 1. Hook to manage subtitle visibility natively
   useEffect(() => {
     if (!videoRef.current) return;
@@ -198,6 +429,121 @@ const VideoPlayer = ({
       }
     }
   }, [subtitlesEnabled, activeSubtitleIndex, subtitleFiles]);
+
+
+  // 2. Hook to load online subtitles
+  const loadOnlineSubtitle = useCallback(async (subtitle) => {
+
+    try {
+      console.log(`📥 Loading online subtitle: ${subtitle.language} from ${subtitle.source}`);
+      console.log('📥 Subtitle object:', subtitle);
+
+      let downloadUrl;
+      if (subtitle.fileId) {
+        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?fileId=${encodeURIComponent(subtitle.fileId)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}&torrentHash=${encodeURIComponent(torrentHash)}`;
+      } else if (subtitle.url) {
+        downloadUrl = `${config.apiBaseUrl}/api/subtitles/download?url=${encodeURIComponent(subtitle.url)}&language=${encodeURIComponent(subtitle.language)}&filename=${encodeURIComponent(subtitle.filename || 'subtitle.srt')}&torrentHash=${encodeURIComponent(torrentHash)}`;
+      } else {
+        throw new Error('No fileId or URL available for subtitle');
+      }
+
+      console.log('📥 Fetching subtitle from:', downloadUrl);
+      const response = await fetch(downloadUrl, {
+        headers: { Accept: 'text/vtt, text/plain, */*' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+
+      const subtitleContent = await response.text();
+      console.log('📝 Subtitle content received, length:', subtitleContent.length);
+
+      if (!subtitleContent || subtitleContent.length < 10) {
+        throw new Error('Invalid subtitle content received');
+      }
+
+      // ✅ Ensure valid VTT format
+      let vttContent = subtitleContent;
+      if (!subtitleContent.startsWith('WEBVTT')) {
+        console.log('⚠️ Content is not VTT format, adding header');
+        vttContent = 'WEBVTT\n\n' + subtitleContent.replace(/,/g, '.'); // convert commas to periods
+      }
+
+      // ✅ Create Blob URL
+      const blob = new Blob([vttContent], { type: 'text/vtt; charset=utf-8' });
+      const subtitleUrl = URL.createObjectURL(blob);
+      console.log('📝 Blob URL created:', subtitleUrl);
+
+      const video = videoRef.current;
+      if (!video) throw new Error('Video element not found');
+
+      // ✅ Remove old subtitle tracks and revoke blob URLs
+      const oldTracks = video.querySelectorAll('track');
+      oldTracks.forEach(t => {
+        if (t.src.startsWith('blob:')) URL.revokeObjectURL(t.src);
+        t.remove();
+      });
+
+      // ✅ Create and add track
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.label = `${subtitle.language} (${subtitle.source})`;
+      track.srclang = subtitle.languageCode || subtitle.language.toLowerCase().substring(0, 2);
+      track.src = subtitleUrl;
+      track.default = true;
+      video.appendChild(track);
+
+      // ✅ Ensure subtitles show up after the track loads
+      track.addEventListener('load', () => {
+        const tracks = video.textTracks;
+        if (tracks.length > 0) {
+          [...tracks].forEach(t => (t.mode = 'hidden'));
+          tracks[tracks.length - 1].mode = 'showing';
+          console.log('✅ Subtitles are now showing');
+        }
+      });
+
+      setCurrentSubtitle({
+        ...subtitle,
+        url: subtitleUrl,
+        isOnline: true
+      });
+      setShowSubtitleMenu(false);
+
+    } catch (error) {
+      console.error('❌ Error loading online subtitle:', error);
+      alert(`Failed to load subtitle: ${error.message}`);
+    }
+  }, []);
+
+  // 3. Hook to search for online subtitles
+  const searchOnlineSubtitles = async (searchQuery) => {
+    // Prevent searching if no title exists or already searching
+    if (!searchQuery || isSearchingOnline) return;
+
+    setIsSearchingOnline(true);
+    setOnlineSubtitles([]); // Clear previous results
+
+    try {
+      console.log(`🔍 Searching for subtitles: ${searchQuery}`);
+
+      const response = await fetch(`${config.apiBaseUrl}/api/subtitles/search?query=${encodeURIComponent(searchQuery)}`);
+
+      if (!response.ok) throw new Error('Search failed');
+
+      const results = await response.json();
+
+      console.log(`✅ Found ${results.length} subtitles`);
+      setOnlineSubtitles(results);
+
+    } catch (error) {
+      console.error('❌ Error searching subtitles:', error);
+      alert('Failed to search for subtitles. Please check your connection or try again later.');
+    } finally {
+      setIsSearchingOnline(false);
+    }
+  };
 
   // ==========================================
   // 3. SAFE SCRUBBING & GESTURES
@@ -220,6 +566,7 @@ const VideoPlayer = ({
 
   const handleSeekEnd = () => {
     if (!isScrubbing || !videoRef.current) return;
+    lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
     videoRef.current.currentTime = scrubTime;
     setCurrentTime(scrubTime);
     setIsScrubbing(false);
@@ -254,6 +601,7 @@ const VideoPlayer = ({
 
   const handleTouchEnd = () => {
     if (touchRef.current.isSeeking && videoRef.current) {
+      lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
       videoRef.current.currentTime = scrubTime;
       setCurrentTime(scrubTime);
       setSwipeIndicator(null);
@@ -271,6 +619,7 @@ const VideoPlayer = ({
 
   const skip = (seconds) => {
     const video = videoRef.current;
+    lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
     video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seconds));
   };
 
@@ -293,11 +642,47 @@ const VideoPlayer = ({
     setShowSettings(false);
   };
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     const container = videoRef.current.parentElement;
-    if (!document.fullscreenElement) container.requestFullscreen?.() || container.webkitRequestFullscreen?.();
-    else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
-    setIsFullscreen(!document.fullscreenElement);
+    if (!document.fullscreenElement) {
+      try {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+          container.webkitRequestFullscreen();
+        }
+      } catch (e) {
+        console.error('Fullscreen request error:', e);
+      }
+
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+          await window.screen.orientation.lock('landscape');
+        }
+      } catch (e) {
+        console.log('Orientation lock error:', e);
+      }
+      setIsFullscreen(true);
+    } else {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+      } catch (e) {
+        console.error('Fullscreen exit error:', e);
+      }
+
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+          window.screen.orientation.unlock();
+        }
+      } catch (e) {
+        console.log('Orientation unlock error:', e);
+      }
+      setIsFullscreen(false);
+    }
   };
 
   const formatTime = (time) => {
@@ -315,7 +700,7 @@ const VideoPlayer = ({
         setShowControls(true);
         clearTimeout(controlsTimeoutRef.current);
         controlsTimeoutRef.current = setTimeout(() => {
-          if (isPlaying && !isScrubbing) setShowControls(false);
+          if (isPlaying && !isScrubbing && !showSubtitleMenu) setShowControls(false);
         }, 3000);
       }}
       // onMouseLeave={() => !isScrubbing && isPlaying && setShowControls(false)}
@@ -335,16 +720,24 @@ const VideoPlayer = ({
         playsInline
         crossOrigin="anonymous"
       >
-        {subtitleFiles.map((sub, idx) => (
-          <track
-            key={sub.index}
-            kind="subtitles"
-            src={`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${sub.index}/subtitle`}
-            srcLang="en"
-            label={sub.name}
-            default={idx === 0}
-          />
-        ))}
+        {subtitleFiles.map((sub, idx) => {
+          // 1. Conditionally build the URL based on the backend logic we set up
+          const subtitleUrl = sub.isLocalSubtitle
+            ? `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${encodeURIComponent(sub.fileName)}/subtitle?isLocal=true`
+            : `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${sub.index}/subtitle`;
+
+          return (
+            <track
+              // Use fileName as a fallback key just in case local subs share an index
+              key={sub.index || sub.fileName}
+              kind="subtitles"
+              src={subtitleUrl}
+              srcLang="en"
+              label={sub.name}
+              default={idx === 0}
+            />
+          );
+        })}
 
       </video>
 
@@ -357,7 +750,6 @@ const VideoPlayer = ({
 
         {/* Right Side Actions Container */}
         <div className="top-bar-actions">
-
           {onClose && (
             <div className="top-action-button video-close-button" onClick={onClose} title="Close">
               <X size={20} />
@@ -415,7 +807,22 @@ const VideoPlayer = ({
         </div>
       )}
 
-
+      {isLoading && bufferingReason && (
+        <div className={`buffering-reason-toast ${showControls ? 'with-controls' : 'without-controls'}`}>
+          <div className="toast-content-row">
+            <div className={`toast-primary-reason toast-color-${bufferingReason.color}`}>
+              {bufferingReason.icon === 'download' && <Download size={14} />}
+              {bufferingReason.icon === 'wifi_off' && <WifiOff size={14} />}
+              {bufferingReason.icon === 'server' && <Server size={14} />}
+              {bufferingReason.icon === 'loader' && <Loader2 size={14} className="spinning" />}
+              <span>{bufferingReason.label}</span>
+            </div>
+            {bufferingReason.detail && (
+              <span className="hide-on-mobile toast-secondary-stat">{bufferingReason.detail}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* FLOATING CONTROL PILL */}
       <div className={`video-controls ${showControls ? 'visible' : ''}`} onClick={(e) => e.stopPropagation()}>
@@ -442,7 +849,7 @@ const VideoPlayer = ({
             <div className="progress-played" style={{ width: `${(displayTime / duration) * 100}%` }} />
             <div className="progress-thumb" style={{ left: `${(displayTime / duration) * 100}%` }} />
             {torrentStats.progress > 0 && (
-              <div className="progress-torrent" style={{ width: `${torrentStats.progress}%` }} />
+              <div className="progress-torrent" style={{ width: `${torrentStats.progress * 100}%` }} />
             )}
           </div>
         </div>
@@ -475,51 +882,103 @@ const VideoPlayer = ({
               )}
             </div>
             {/* Subtitles Menu */}
-            {subtitleFiles.length > 0 && (
-              <div className="subtitle-menu">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowSubtitleMenu(!showSubtitleMenu); }}
-                  className={`control-button ${subtitlesEnabled ? 'active' : ''}`}
-                >
-                  <Subtitles size={18} />
-                </button>
 
-                {showSubtitleMenu && (
-                  <div className="subtitle-dropdown" onClick={(e) => e.stopPropagation()}>
-                    <div className="subtitle-section">
-                      <span>Subtitles</span>
+            <div className="subtitle-menu">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowSubtitleMenu(!showSubtitleMenu); }}
+                className={`control-button ${subtitlesEnabled ? 'active' : ''}`}
+              >
+                <Subtitles size={18} />
+              </button>
 
-                      {/* The "OFF" Button */}
+              {showSubtitleMenu && (
+                <div className="subtitle-dropdown" onClick={(e) => e.stopPropagation()}>
+                  <div className="subtitle-section">
+                    <span>Subtitles</span>
+
+                    {/* Loop through all files and create a button for each one */}
+                    {subtitleFiles.length > 0 && subtitleFiles.map((sub, idx) => (
                       <button
-                        className={`subtitle-option ${!subtitlesEnabled ? 'active' : ''}`}
+                        key={sub.index}
+                        className={`subtitle-option ${subtitlesEnabled && activeSubtitleIndex === idx ? 'active' : ''}`}
                         onClick={() => {
-                          setSubtitlesEnabled(false);
+                          setActiveSubtitleIndex(idx);
+                          setSubtitlesEnabled(true);
                           setShowSubtitleMenu(false);
                         }}
                       >
-                       Disbale subtitles
+                        {sub.name || `Track ${idx + 1}`}
                       </button>
+                    ))}
 
-                      {/* Loop through all files and create a button for each one */}
-                      {subtitleFiles.map((sub, idx) => (
-                        <button
-                          key={sub.index}
-                          className={`subtitle-option ${subtitlesEnabled && activeSubtitleIndex === idx ? 'active' : ''}`}
-                          onClick={() => {
-                            setActiveSubtitleIndex(idx);
-                            setSubtitlesEnabled(true);
-                            setShowSubtitleMenu(false);
+                    <div className="subtitle-section">
+                      <span>Online Search</span>
+
+                      {/* Search input field */}
+                      <div className="subtitle-search-input">
+                        <input
+                          type="text"
+                          placeholder="Type to search subtitles..."
+                          value={subtitleSearchQuery}
+                          onChange={(e) => setSubtitleSearchQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && subtitleSearchQuery.trim()) {
+                              searchOnlineSubtitles(subtitleSearchQuery.trim());
+                            }
                           }}
+                        />
+                        <button
+                          onClick={() => {
+                            if (subtitleSearchQuery.trim()) {
+                              searchOnlineSubtitles(subtitleSearchQuery.trim());
+                            }
+                          }}
+                          className="search-button"
+                          disabled={isSearchingOnline || !subtitleSearchQuery.trim()}
                         >
-                          {sub.name || `Track ${idx + 1}`}
+                          {isSearchingOnline ? (
+                            <Loader2 size={16} className="spinning" />
+                          ) : (
+                            <Search size={16} />
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Online subtitle results */}
+                      {onlineSubtitles.map((subtitle, index) => (
+                        <button
+                          key={`online-${index}`}
+                          onClick={() => loadOnlineSubtitle(subtitle)}
+                          className={`subtitle-option ${currentSubtitle?.url === subtitle.url ? 'active' : ''}`}
+                          title={`${subtitle.language} (${subtitle.source})`}
+                        >
+                          <span className="online-subtitle-text">
+                            <Globe size={16} />
+
+                            {subtitle.language} ({subtitle.filename})
+                          </span>
                         </button>
                       ))}
-
                     </div>
+
+                    {/* The "OFF" Button */}
+                    <button
+                      className={`subtitle-option ${!subtitlesEnabled ? 'active' : ''}`}
+                      onClick={() => {
+                        setSubtitlesEnabled(false);
+                        setShowSubtitleMenu(false);
+                      }}
+                    >
+                      Disbale subtitles
+                    </button>
+
+
+
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+
 
             {/* Settings Menu */}
             <div className="settings-menu">
@@ -541,12 +1000,33 @@ const VideoPlayer = ({
                     ))}
                   </div>
 
+                  <div className="settings-section1 vlc-section">
+                    <span>External Player</span>
+                    <button
+                      type="button"
+                      className="settings-option"
+                      onClick={() => {
+                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}/playlist`;
+                        const element = document.createElement('a');
+                        element.href = url;
+                        element.download = 'playlist.m3u';
+                        document.body.appendChild(element);
+                        element.click();
+                        document.body.removeChild(element);
+                      }}
+                    >
+                      <img src={VLC_ICON} alt="VLC Icon" style={{ width: '20px', height: '20px' }} />
+                    </button>
+                  </div>
+
+
                   <div className="settings-section1 mobile-only-settings">
                     <span>Audio</span>
                     <button className="settings-option" onClick={toggleMute}>
                       {isMuted || volume === 0 ? 'Unmute' : 'Mute'}
                     </button>
                   </div>
+
                 </div>
               )}
             </div>
@@ -555,22 +1035,24 @@ const VideoPlayer = ({
             <button onClick={toggleFullscreen} className="control-button"><Maximize size={18} /></button>
           </div>
         </div>
-      </div>
+      </div >
 
       {/* Resume Dialog */}
-      {showResumeDialog && resumeData && (
-        <div className="resume-dialog-overlay" onClick={(e) => e.stopPropagation()}>
-          <div className="resume-dialog">
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Resume Playback?</h3>
-            <p style={{ margin: '0 0 16px 0', color: '#a1a1aa', fontSize: '14px' }}>Continue from {formatTime(resumeData.currentTime)}</p>
-            <div className="resume-actions">
-              <button onClick={() => { videoRef.current.currentTime = 0; setShowResumeDialog(false); }} className="resume-button secondary">Restart</button>
-              <button onClick={() => { videoRef.current.currentTime = resumeData.currentTime; setShowResumeDialog(false); }} className="resume-button primary">Resume</button>
+      {
+        showResumeDialog && resumeData && (
+          <div className="resume-dialog-overlay" onClick={(e) => e.stopPropagation()}>
+            <div className="resume-dialog">
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>Resume Playback?</h3>
+              <p style={{ margin: '0 0 16px 0', color: '#a1a1aa', fontSize: '14px' }}>Continue from {formatTime(resumeData.currentTime)}</p>
+              <div className="resume-actions">
+                <button onClick={() => { videoRef.current.currentTime = 0; setShowResumeDialog(false); }} className="resume-button secondary">Restart</button>
+                <button onClick={() => { videoRef.current.currentTime = resumeData.currentTime; setShowResumeDialog(false); }} className="resume-button primary">Resume</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

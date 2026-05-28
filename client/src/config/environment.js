@@ -6,7 +6,7 @@
 // Get API base URL from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
-const apikeyTorrentclaw = 'tc_65e6dbf8ad5125ccacbd82658fc3263c0c67d1ae30677fac';
+
 
 // Remove trailing slash if present
 const normalizeUrl = (url) => url.endsWith('/') ? url.slice(0, -1) : url;
@@ -14,7 +14,8 @@ const normalizeUrl = (url) => url.endsWith('/') ? url.slice(0, -1) : url;
 export const config = {
   // API Configuration
   apiBaseUrl: normalizeUrl(API_BASE_URL),
-  apikeyTorrentclaw: apikeyTorrentclaw,
+  apikeyTorrentclaw: import.meta.env.VITE_APIKEY_TORRENTCLAW,
+  googleClientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
   
   // API Endpoints
   api: {

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search } from 'lucide-react';
+import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search, Folder, LogOut, Rss } from 'lucide-react';
 import { config } from '../config/environment';
-import './Layout.css';
+import { useAuth } from '../context/AuthContext';
+import '../assets/styles/Layout.css';
 
 const Layout = () => {
   const location = useLocation();
+  const { logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cacheStats, setCacheStats] = useState({
@@ -16,9 +18,8 @@ const Layout = () => {
 
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
-    { path: '/recent', icon: Clock, label: 'Recent' },
-    { path: '/search', icon: Search, label: 'Search' },
-    { path: '/settings', icon: Settings, label: 'Settings' }
+    { path: '/files', icon: Folder, label: 'Files' },
+    { path: '/rss', icon: Rss, label: 'RSS Reader' },
   ];
 
   useEffect(() => {
@@ -123,11 +124,30 @@ const Layout = () => {
               </Link>
             );
           })}
+          
+          <button
+            className="nav-item"
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              width: '100%', 
+              textAlign: 'left',
+              cursor: 'pointer',
+              fontFamily: 'inherit'
+            }}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              logout();
+            }}
+          >
+            <LogOut size={20} />
+            {!sidebarCollapsed && <span>Logout</span>}
+          </button>
         </nav>
 
         {!sidebarCollapsed && (
           <div className="cache-stats">
-            <Link to="/cache" className="cache-link">
+            <Link to="/files"  className="cache-link">
 
               {/* Top Row: Icon, Title, and Percentage Badge */}
               <div className="cache-header">

@@ -1,0 +1,894 @@
+/* Option A: Clean Minimalist SaaS Dashboard (FilesPage.css) */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.saas-container {
+  font-family: 'Inter', -apple-system, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 5rem;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Base Utility Colors */
+.text-primary { color: #818cf8; }
+.text-muted { color: #64748b; }
+
+/* HEADER */
+.saas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.saas-header-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.saas-title-icon {
+  background: rgba(99, 102, 241, 0.15);
+  padding: 10px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366f1;
+}
+
+.saas-header-title h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.saas-badge {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.saas-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.saas-search {
+  display: flex;
+  align-items: center;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 38px;
+  transition: all 0.2s;
+}
+
+.saas-search:focus-within {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.saas-search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e2e8f0;
+  padding: 0 8px;
+  font-size: 0.875rem;
+  width: 180px;
+}
+
+.saas-search input::placeholder {
+  color: #64748b;
+}
+
+.saas-search svg {
+  color: #64748b;
+}
+
+.saas-header-divider {
+  width: 1px;
+  height: 24px;
+  background: #1e293b;
+}
+
+.saas-btn-ghost, .saas-btn-secondary, .saas-btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.saas-btn-ghost {
+  background: transparent;
+  color: #94a3b8;
+  padding: 0 12px;
+}
+.saas-btn-ghost:hover {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.saas-btn-secondary {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+  padding: 0 16px;
+}
+.saas-btn-secondary:hover {
+  background: #334155;
+}
+
+.saas-btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  padding: 0 16px;
+}
+.saas-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.saas-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* STATS BAR */
+/* Stats Bar - Modern Tweak */
+.saas-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 12px 24px;
+  margin-bottom: 24px;
+  width: fit-content;
+}
+
+.saas-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat-icon-sm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.stat-icon-sm.blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.stat-icon-sm.purple {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.stat-icon-sm.green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 24px;
+  background: #1e293b;
+}
+
+.saas-stat .stat-label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.saas-stat .stat-value {
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+/* TABLE */
+.saas-table-container {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.saas-table {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.saas-table-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 24px;
+  background: #0b1121;
+  border-bottom: 1px solid #1e293b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.saas-row-group {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #1e293b;
+}
+
+.saas-row-group:last-child {
+  border-bottom: none;
+}
+
+.saas-row {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  cursor: pointer;
+  background: #0f172a;
+  transition: background 0.2s;
+}
+
+.saas-row:hover {
+  background: #1e293b;
+}
+
+.saas-row-group.expanded .saas-row {
+  background: #141e33;
+}
+
+/* Columns */
+.col-name {
+  flex: 2;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.col-size { flex: 0.5; color: #94a3b8; font-size: 0.875rem; }
+.col-metrics { flex: 1.5; display: flex; gap: 12px; }
+.col-status { flex: 1; display: flex; align-items: center; gap: 12px; }
+.col-actions { width: 50px; display: flex; justify-content: flex-end; }
+
+/* Cell Content */
+.saas-expand-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.saas-poster-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.saas-poster-sm img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dataset-name {
+  font-weight: 500;
+  color: #f8fafc;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-pill {
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  
+  padding: 4px 8px;
+  border-radius: 6px;
+ 
+}
+
+.saas-progress-track {
+  flex: 1;
+  height: 6px;
+  min-height: 6px;
+  background: #1e293b;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.saas-progress-fill {
+  height: 100%;
+  background: #6366f1;
+  transition: width 0.3s;
+}
+
+.saas-progress-fill.complete {
+  background: #10b981;
+}
+
+.saas-progress-text {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+  width: 36px;
+  text-align: right;
+}
+
+.saas-icon-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saas-icon-btn:hover { background: #1e293b; color: #f8fafc; }
+.saas-icon-btn.danger:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+/* INNER TABLE */
+.saas-sub-table {
+  background: #0b1121;
+  border-top: 1px solid #1e293b;
+  padding: 8px 24px 16px 64px; 
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saas-sub-row {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.saas-sub-row:hover {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.sub-row-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sub-col-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.file-icon-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.file-type-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #1e293b;
+}
+
+.file-name-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.sub-col-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Detailed Progress Bars */
+.sub-row-progress-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #1e293b;
+  width: 100%;
+}
+
+.detailed-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.detailed-progress .prog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.detailed-progress .prog-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detailed-progress .prog-stats button {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.detailed-progress .prog-stats button:hover {
+  color: #ef4444;
+}
+
+.detailed-progress .saas-progress-track {
+  flex: none;
+  width: 100%;
+}
+
+.saas-progress-fill.drive { background: #10b981; }
+.saas-progress-fill.tg { background: #38bdf8; }
+
+/* =============================================
+   MINIMAL ACTION TEXT BUTTONS
+============================================= */
+
+/* Base text button */
+.saas-action-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Play */
+.saas-action-text-btn.play {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+.saas-action-text-btn.play:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+}
+
+/* Drive upload */
+.saas-action-text-btn.drive {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+.saas-action-text-btn.drive:hover {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+}
+
+/* Telegram upload */
+.saas-action-text-btn.tg {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+.saas-action-text-btn.tg:hover {
+  background: rgba(56, 189, 248, 0.22);
+  color: #7dd3fc;
+}
+
+/* Completed */
+.saas-action-text-btn.done {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+.saas-action-text-btn.done:hover {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+}
+.saas-action-text-btn.done.tg {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+.saas-action-text-btn.done.tg:hover {
+  background: rgba(56, 189, 248, 0.22);
+  color: #7dd3fc;
+}
+
+/* Muted */
+.saas-action-text-btn.muted {
+  background: rgba(148, 163, 184, 0.08);
+  color: #64748b;
+}
+.saas-action-text-btn.muted:hover {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+/* Danger */
+.saas-action-text-btn.danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+.saas-action-text-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+}
+
+/* Disabled state */
+.saas-action-text-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Group containers for done/fail pairs */
+.saas-done-group,
+.saas-fail-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* We removed saas-uploading-pill, relying on separate detailed progress bars now */
+
+/* Empty States */
+.saas-empty, .saas-sub-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: #64748b;
+  text-align: center;
+}
+.saas-empty svg {
+  color: #334155;
+  margin-bottom: 16px;
+}
+.saas-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #334155;
+  border-top-color: #818cf8;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+.saas-sub-empty {
+  padding: 16px;
+  font-size: 0.85rem;
+}
+
+
+/* =========================================================
+   MOBILE RESPONSIVENESS OVERHAUL
+========================================================= */
+@media (max-width: 768px) {
+  
+  /* Container Padding Adjustments */
+  .saas-container {
+    padding: 1.5rem 1rem 4rem;
+  }
+
+  /* Header & Action Buttons */
+  .saas-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  
+  .saas-header-title {
+    justify-content: flex-start;
+  }
+  
+  .saas-header-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+  
+  .saas-header-divider { display: none; }
+  
+  /* Enhanced Touch Targets for Search & Inputs */
+  .saas-search {
+    width: 100%;
+    height: 44px; /* Optimal touch size */
+  }
+  
+  .saas-search input {
+    width: 100%;
+  }
+
+  /* Full Width Mobile Buttons */
+  .saas-btn-ghost, 
+  .saas-btn-secondary, 
+  .saas-btn-danger {
+    width: 100%;
+    height: 44px;
+    justify-content: center;
+  }
+  
+  .saas-stats-bar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 16px;
+  }
+  
+  .stat-divider {
+    width: 100%;
+    height: 1px;
+  }
+  
+  /* Tables - Hide headers, convert rows to cards */
+  .saas-table-container {
+    background: transparent;
+    border: none;
+  }
+  
+  .saas-table {
+    gap: 16px;
+  }
+  
+  .saas-table-header {
+    display: none; 
+  }
+  
+  .saas-row-group {
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    background: #0f172a;
+    overflow: hidden;
+  }
+  
+  .saas-row-group:last-child {
+    border-bottom: 1px solid #1e293b;
+  }
+  
+  .saas-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "poster name action"
+      "poster metrics action"
+      "poster size action"
+      "progress progress progress";
+    gap: 4px 16px;
+    padding: 16px;
+    align-items: center;
+  }
+  
+  /* Use display: contents so the children participate in the saas-row Grid */
+  .col-name {
+    display: contents;
+  }
+  
+  /* Hide expand button to save space (card is fully clickable) */
+  .saas-expand-btn {
+    display: none;
+  }
+  
+  /* Movie Poster Layout */
+  .saas-poster-sm {
+    grid-area: poster;
+    width: 76px;
+    height: 110px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    align-self: center;
+  }
+  
+  /* Title */
+  .dataset-name {
+    grid-area: name;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #f8fafc;
+    align-self: end;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+    line-height: 1.3;
+    margin-top: 0;
+  }
+  
+  /* Metrics */
+  .col-metrics {
+    grid-area: metrics;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+  
+  .metric-pill {
+    padding: 0;
+  }
+  
+  /* Size */
+  .col-size {
+    grid-area: size;
+    display: block;
+    margin: 0;
+    align-self: start;
+  }
+  
+  /* Action Button (Trash) */
+  .col-actions {
+    grid-area: action;
+    position: static;
+    display: flex;
+    align-items: center;
+  }
+  
+  /* Progress Bar */
+  .col-status {
+    grid-area: progress;
+    width: 100%;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .saas-progress-text {
+    display: block;
+  }
+  
+  /* Style the actual track and fill */
+  .col-status .saas-progress-track {
+    height: 6px;
+    border-radius: 4px;
+    min-height: 6px;
+    flex: 1;
+  }
+  
+  /* Enhanced Icon Button touch targets */
+  .saas-icon-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Sub-table styling for mobile */
+  .saas-sub-table {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .saas-sub-row {
+    padding: 12px;
+    border-radius: 8px;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    transition: none;
+  }
+  
+  .sub-row-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .sub-col-name {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+  
+  .sub-col-actions {
+    width: 100%;
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  /* Improve action icon touch targets for mobile */
+  .saas-action-icon {
+    width: 38px;
+    height: 38px;
+  }
+}

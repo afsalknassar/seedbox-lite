@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, Shield } from 'lucide-react';
 import { config } from '../config/environment';
-import './LoginScreen.css';
+import '../assets/styles/LoginScreen.css';
 
 const LoginScreen = ({ onAuthSuccess }) => {
   const [password, setPassword] = useState('');

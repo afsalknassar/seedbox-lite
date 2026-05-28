@@ -3,7 +3,7 @@ import { Upload, Link as LinkIcon, Download, Leaf, Clock, Search, Trash2, HardDr
 import { useNavigate, Link } from 'react-router-dom';
 import { config } from '../config/environment';
 import torrentHistoryService from '../services/torrentHistoryService';
-import './HomePage.css';
+import '../assets/styles/HomePage.css';
 
 const HomePage = () => {
   const navigate = useNavigate();

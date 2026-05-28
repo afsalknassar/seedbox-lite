@@ -1,8 +1,10 @@
+//just experimenting with the api not ready yet
+
 import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const PROXY   = "https://my-api-proxy.afsalknasser3.workers.dev";
-const API_KEY = "tc_65e6dbf8ad5125ccacbd82658fc3263c0c67d1ae30677fac"; // replace with your real key
+const API_KEY = ""; // replace with your real key
 
 const apiFetch = async (path, params = {}) => {
   const url = new URL(`${PROXY}${path}`);

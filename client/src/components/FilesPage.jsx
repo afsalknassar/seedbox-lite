@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HardDrive, Search, File,DownloadCloud, ChevronDown, ChevronRight, CloudUpload, CheckCircle, Send, AlertCircle, Activity, Users, Trash2, Calendar, RefreshCw, XCircle, Database } from 'lucide-react';
+import { HardDrive, Search, File,DownloadCloud, ChevronDown, ChevronRight, CloudUpload, CheckCircle, Send, AlertCircle, Activity, Users, Trash2, Calendar, RefreshCw, XCircle, Database, Play } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
+import { useNavigate } from 'react-router-dom';
 import { config } from '../config/environment';
 
 // We now only import the specific FilesPage CSS, dropping HomePage styles.
 import '../assets/styles/FilesPage.css';
 
 const FilesPage = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -398,6 +400,8 @@ const FilesPage = () => {
     return ext === filename ? '' : ext.toUpperCase();
   };
 
+  const isVideo = (filename) => /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i.test(filename);
+
   return (
     <div className="saas-container">
       
@@ -549,6 +553,18 @@ const FilesPage = () => {
                                 </div>
                                 
                                 <div className="sub-col-actions">
+                                  {isVideo(file.name) && (
+                                    <button 
+                                      className="saas-upload-btn" 
+                                      style={{ backgroundColor: '#e50914', color: 'white', borderColor: '#e50914' }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/torrent/${t.infoHash}`);
+                                      }}
+                                    >
+                                      <Play size={14} fill="currentColor" strokeWidth={0} /> Play
+                                    </button>
+                                  )}
                                   {/* Drive Actions */}
                                   {driveStatus?.status === 'uploading' || driveStatus?.status === 'initializing' ? (
                                     null /* handled in progress bar row */

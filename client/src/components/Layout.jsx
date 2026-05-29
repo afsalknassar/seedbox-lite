@@ -19,7 +19,9 @@ const Layout = () => {
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/files', icon: Folder, label: 'Files' },
-    { path: '/rss', icon: Rss, label: 'RSS Reader' },
+    { path: '/search-sources', icon: Search, label: 'Torrent Library' },
+    { path: '/rss', icon: Rss, label: 'RSS Feed' },
+
   ];
 
   useEffect(() => {
@@ -124,13 +126,13 @@ const Layout = () => {
               </Link>
             );
           })}
-          
+
           <button
             className="nav-item"
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              width: '100%', 
+            style={{
+              background: 'transparent',
+              border: 'none',
+              width: '100%',
               textAlign: 'left',
               cursor: 'pointer',
               fontFamily: 'inherit'
@@ -147,7 +149,7 @@ const Layout = () => {
 
         {!sidebarCollapsed && (
           <div className="cache-stats">
-            <Link to="/files"  className="cache-link">
+            <Link to="/files" className="cache-link">
 
               {/* Top Row: Icon, Title, and Percentage Badge */}
               <div className="cache-header">

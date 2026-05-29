@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const PROXY   = "https://my-api-proxy.afsalknasser3.workers.dev";
-const API_KEY = ""; // replace with your real key
+const PROXY   = "https://rich-clownfish-18.epaperhubdaily.deno.net";
+const API_KEY = "tc_cc07d834fe3a9fb54d4343e379eec4d8c74f898c9d6048c1"; // replace with your real key
 
 const apiFetch = async (path, params = {}) => {
   const url = new URL(`${PROXY}${path}`);

@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      historyApiFallback: true,
       proxy: {
         "/api": {
           target: apiBaseUrl,

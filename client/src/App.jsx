@@ -7,6 +7,7 @@ import TorrentPageNetflix from './components/TorrentPageNetflix';
 import RssReaderPage from './components/RssReaderPage';
 import LoginScreen from './components/LoginScreen';
 import FilesPage from './components/FilesPage';
+import SearchSourcesPage1 from './components/SearchSourcesPage1';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import './App.css';
 import { config } from './config/environment.js';
@@ -58,6 +59,7 @@ const AuthenticatedApp = () => {
           <Route index element={<HomePage />} />
           <Route path="rss" element={<RssReaderPage />} />
           <Route path="files" element={<FilesPage />} />
+          <Route path="search-sources" element={<SearchSourcesPage1 />} />
         </Route>
       </Routes>
     </Router>

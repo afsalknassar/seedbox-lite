@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search, Folder, LogOut, Rss } from 'lucide-react';
+import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search, Folder, LogOut, Rss, Magnet, } from 'lucide-react';
 import { config } from '../config/environment';
 import { useAuth } from '../context/AuthContext';
 import '../assets/styles/Layout.css';
@@ -18,8 +18,8 @@ const Layout = () => {
 
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
+    { path: '/torrent-home', icon: Magnet, label: 'Explore' },
     { path: '/files', icon: Folder, label: 'Files' },
-    { path: '/search-sources', icon: Search, label: 'Torrent Library' },
     { path: '/rss', icon: Rss, label: 'RSS Feed' },
 
   ];

@@ -1,0 +1,416 @@
+:root {
+  --bg-color: #0d1117; 
+  --card-bg: #161b22;
+  --text-main: #f0f6fc;
+  --text-muted: #8b949e;
+  --accent: #3b82f6;
+  --rating-bg: rgba(0, 0, 0, 0.6); /* Slightly more transparent for softness */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.t-app {
+  padding-bottom: 90px;
+}
+
+/* ─── UNIFORM GRID ────────────────────────────────────────── */
+.t-section {
+  padding: 0 4%;
+  margin-bottom: 2.5rem;
+}
+
+.t-section-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.t-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.3px;
+}
+
+.t-select {
+  background: var(--card-bg);
+  color: var(--text-main);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 14px;
+  border-radius: 100px; /* Perfectly smooth pill shape */
+  font-size: 0.85rem;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.t-select:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.t-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1.25rem;
+}
+
+/* ─── CARD SETTINGS (SMOOTH EDGES) ─────────────────────────── */
+.t-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  /* Super smooth, slightly springy hover effect */
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.05);
+}
+
+.t-card:hover {
+  transform: translateY(-6px);
+}
+
+.t-card-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background-color: var(--card-bg);
+  border-radius: 16px; /* Increased for a much softer, modern look */
+  overflow: hidden;
+  /* Softer, wider, more elegant shadow */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); 
+}
+
+.t-card-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.3s ease;
+}
+
+.t-card-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #4b5563;
+}
+
+.t-card-rating {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--rating-bg);
+  color: #fbbf24; 
+  padding: 5px 8px;
+  border-radius: 10px; /* Smoother corner */
+  font-size: 0.75rem;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.t-no-torrent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(220, 38, 38, 0.9);
+  color: white;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 8px 0;
+}
+
+.t-card-info {
+  padding: 10px 4px 4px 4px;
+}
+
+.t-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+  letter-spacing: -0.2px;
+}
+
+.t-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.t-card-seeds {
+  color: #10b981;
+  font-weight: 600;
+}
+
+/* ─── HERO SECTION ─────────────────────────────────────────── */
+.t-hero {
+  position: relative;
+  width: 100%;
+  height: 65vh;
+  min-height: 450px;
+  max-height: 700px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  margin-bottom: 2.5rem;
+  cursor: pointer;
+  overflow: hidden;
+  /* Adding a very subtle bottom radius makes it blend nicely into the grid */
+  border-radius: 24px;
+
+}
+
+.t-hero-img-wrapper {
+  border-radius:10px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.t-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  animation: slowZoom 25s ease-out infinite alternate;
+}
+
+@keyframes slowZoom {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.1); }
+}
+
+.t-hero-overlay {
+  border-radius:10px;
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(to top, var(--bg-color) 0%, rgba(13, 17, 23, 0.3) 50%, transparent 100%),
+    linear-gradient(to right, var(--bg-color) 0%, rgba(13, 17, 23, 0.2) 60%, transparent 100%);
+  z-index: 2;
+}
+
+.t-hero-content {
+  position: relative;
+  z-index: 3;
+  padding: 2.5rem 4%;
+  max-width: 800px;
+}
+
+.t-hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: white;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 6px 14px;
+  border-radius: 100px; /* Smooth pill shape */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  margin-bottom: 12px;
+}
+
+.t-hero-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.t-hero-title {
+  font-size: clamp(2.2rem, 8vw, 4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  margin-bottom: 12px;
+  text-shadow: 0px 4px 16px rgba(0,0,0,0.8);
+  letter-spacing: -0.5px;
+}
+
+.t-hero-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  margin-bottom: 12px;
+}
+
+.t-hero-desc {
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin-bottom: 24px;
+  max-width: 90%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.t-type-badge {
+  border: 1px solid rgba(255,255,255,0.3);
+  padding: 3px 10px;
+  border-radius: 8px; /* Smoothed from 4px */
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(0,0,0,0.3);
+}
+
+.t-hero-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Rounded, soft pill buttons */
+.t-hero-btn-primary, .t-hero-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 100px; /* Perfect pill shape */
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.t-hero-btn-primary {
+  background: white;
+  color: black;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+}
+
+.t-hero-btn-primary:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+}
+
+.t-hero-btn-secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.t-hero-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+@media (max-width: 400px) {
+  .t-hero-btn-primary, .t-hero-btn-secondary {
+    padding: 10px 20px;
+    font-size: 0.85rem;
+  }
+}
+
+/* ─── BOTTOM NAV ───────────────────────────────────────────── */
+.t-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(22, 27, 34, 0.85); 
+  backdrop-filter: blur(20px); /* Increased blur for a softer glass effect */
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,0.05); /* Extremely soft border */
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.t-nav-inner {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: 65px;
+  max-width: 500px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.t-nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600; /* Bolder nav text */
+  flex: 1;
+  height: 100%;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  padding: 0;
+}
+
+.t-nav-btn svg {
+  flex-shrink: 0; 
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.t-nav-btn.active {
+  color: var(--text-main); /* White instead of blue for a sleeker look */
+}
+
+.t-nav-btn.active svg {
+  transform: translateY(-3px) scale(1.1); /* Smooth pop up when active */
+  color: var(--accent); /* Only icon turns blue */
+}
+
+/* ─── MOBILE OPTIMIZATION ────────────────────────── */
+@media (max-width: 600px) {
+  .t-hero {
+     border-bottom-left-radius: 0;
+     border-bottom-right-radius: 0;
+  }
+  .t-grid {
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    gap: 12px; 
+  }
+  .t-card-poster {
+    border-radius: 12px; /* Slightly tighter curves on small screens */
+  }
+  .t-card-title {
+    font-size: 0.85rem;
+  }
+}

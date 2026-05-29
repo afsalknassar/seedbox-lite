@@ -318,115 +318,179 @@
 
 
 /* =========================================
-   LOADING & BUFFERING PILL
+   CENTERED BUFFERING ICON
    ========================================= */
-.video-loading {
-  position: absolute; 
-  top: 50%; 
+.buffering-center-icon {
+  position: absolute;
+  top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column; /* Stacks rows top to bottom */
-  gap: 12px; /* Space between text and bar */
-  align-items: center;
-  background: rgba(15, 15, 15, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 15px 24px;
-  border-radius: 16px; /* Slightly squarer looks better for stacked rows */
-  color: white; 
   z-index: 50;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  min-width: 180px; /* Ensures the health bar is wide enough to see */
-}
-
-/* Row 1 layout */
-.loading-header {
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #e4e4e7;
-  letter-spacing: 0.5px;
+  pointer-events: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: iconPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes iconPop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Color variants */
+.buffering-center-icon.ring-download {
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.3);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.buffering-center-icon.ring-network {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.buffering-center-icon.ring-server {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.buffering-center-icon.ring-warning {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .spinning { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Row 2 layout */
-.buffer-health-bar {
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.buffer-health-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s ease, background-color 0.3s ease;
-}
-
-.buffer-health-fill.good { background: #22c55e; }   
-.buffer-health-fill.medium { background: #eab308; } 
-.buffer-health-fill.poor { background: #ef4444; }
-
 /* =========================================
-   BUFFERING DIAGNOSTICS TOAST
+   BOTTOM BUFFERING TOAST
    ========================================= */
-.buffering-reason-toast {
+/* =========================================
+   BOTTOM BUFFERING TOAST
+   ========================================= */
+.buffering-toast {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
-  transition: bottom 0.3s ease;
-  font-size: 12px;
-  color: #d4d4d8;
-  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(18, 18, 20, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border-radius: 100px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   pointer-events: none;
-  white-space: nowrap;
+  animation: toastSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  max-width: 90%;
 }
 
-.buffering-reason-toast.with-controls {
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.buffering-toast.toast-above-controls {
   bottom: 110px;
 }
 
-.buffering-reason-toast.without-controls {
-  bottom: 30px;
+.buffering-toast.toast-bottom {
+  bottom: 32px;
 }
 
-.toast-content-row {
+/* Toast icon */
+.buffering-toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 6px;
+  border-radius: 50%;
+}
+
+.toast-icon-download { color: #60a5fa; background: rgba(96, 165, 250, 0.15); }
+.toast-icon-network  { color: #f87171; background: rgba(248, 113, 113, 0.15); }
+.toast-icon-server   { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
+.toast-icon-warning  { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
+
+/* Content wrapper */
+.buffering-toast-content {
   display: flex;
   align-items: center;
   gap: 10px;
+  overflow: hidden;
 }
 
-.toast-primary-reason {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Toast label */
+.buffering-toast-label {
+  color: #f4f4f5;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
-.toast-primary-reason span {
-  font-weight: 500;
-}
-
-.toast-color-download { color: #60a5fa; }
-.toast-color-network { color: #f87171; }
-.toast-color-server { color: #fbbf24; }
-.toast-color-warning { color: #fbbf24; }
-
-.toast-secondary-stat {
-  font-size: 11px;
+/* Toast detail */
+.buffering-toast-detail {
   color: #a1a1aa;
+  font-size: 0.75rem;
+  font-weight: 400;
+  padding-left: 10px;
+  border-left: 1.5px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .buffering-center-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  .buffering-center-icon {
+    width: 34px;
+    height: 34px;
+  }
+  .buffering-toast {
+    padding: 8px 14px;
+    gap: 10px;
+    border-radius: 24px;
+  }
+  .buffering-toast.toast-above-controls {
+    bottom: 100px;
+  }
+  .buffering-toast-icon {
+    padding: 5px;
+  }
+  .buffering-toast-icon svg {
+    width: 12px;
+    height: 12px;
+  }
+  .buffering-toast-label {
+    font-size: 0.75rem;
+  }
+  .buffering-toast-detail {
+    font-size: 0.65rem;
+    padding-left: 8px;
+  }
 }
 
 /* Torrent Stats Toast */

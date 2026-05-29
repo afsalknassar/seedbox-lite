@@ -186,46 +186,66 @@ const VideoPlayer = ({
     const connDownlink = conn?.downlink; // Mbps, can be stale/inaccurate
     const connEffectiveType = conn?.effectiveType; // '4g', '3g', '2g', 'slow-2g'
 
-    // Check for clearly slow network
-    const isSlowNetwork = (
+    // Only flag slow network when the browser API explicitly reports it
+    // Do NOT use throughputRatio here — it can't distinguish client vs server slowness
+    const isBrowserReportingSlow = (
       (connEffectiveType && ['slow-2g', '2g', '3g'].includes(connEffectiveType)) ||
-      (connDownlink != null && avgBitrateMbps > 0 && connDownlink < avgBitrateMbps * 0.8) ||
-      (throughputRatio !== null && throughputRatio < 0.5) // buffer growing slower than half real-time
+      (connDownlink != null && avgBitrateMbps > 0 && connDownlink < avgBitrateMbps * 0.8)
     );
 
-    if (isSlowNetwork) {
+    // Measure actual buffer fill rate as an independent signal
+    const isBufferStarved = throughputRatio !== null && throughputRatio < 0.5;
+
+    if (isBrowserReportingSlow) {
+      // Browser API says the network is genuinely slow
       const speedInfo = connDownlink != null
-        ? `~${connDownlink} Mbps`
-        : (connEffectiveType ? connEffectiveType.toUpperCase() : 'Low');
+        ? `~${connDownlink.toFixed(1)} Mbps`
+        : connEffectiveType.toUpperCase();
       return {
         type: 'slow_network',
         icon: 'wifi_off',
-        label: 'Slow Network',
+        label: 'Slow Connection',
         detail: avgBitrateMbps > 0
-          ? `Your speed: ${speedInfo} · Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
-          : `Your speed: ${speedInfo}`,
+          ? `Network: ${speedInfo} · Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
+          : `Network: ${speedInfo}`,
         color: 'network'
       };
     }
 
-    // --- Priority 5: Server bottleneck (network is fine but still buffering) ---
-    if (torrentDone || !torrentHash) {
-      const isServerSlow = (
-        throughputRatio !== null && throughputRatio < 0.8 && // buffer not growing fast enough
-        (!isSlowNetwork) // we already ruled out client network
-      );
+    // --- Priority 5: Data not arriving fast enough ---
+    // Buffer isn't growing but the browser API doesn't report slow network.
+    // This could be server-side (disk I/O, CPU) or a network issue the API missed.
+    if (isBufferStarved || (timeSinceBufferingStart > 5000 && bufferAhead < 1)) {
+      // Try to figure out if it's network or server
+      // If connDownlink is available and healthy, it's likely the server
+      const networkLooksOk = connDownlink != null && avgBitrateMbps > 0 && connDownlink >= avgBitrateMbps;
 
-      if (isServerSlow || (timeSinceBufferingStart > 5000 && bufferAhead < 1)) {
+      if (networkLooksOk || torrentDone || !torrentHash) {
         return {
           type: 'server',
           icon: 'server',
-          label: 'Server Bottleneck',
+          label: 'Server Responding Slowly',
           detail: avgBitrateMbps > 0
-            ? `Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
-            : 'Server responding slowly',
+            ? `Video needs ~${avgBitrateMbps.toFixed(1)} Mbps · Data arriving slowly`
+            : 'Waiting for server to send data',
           color: 'server'
         };
       }
+
+      // Network API unavailable or inconclusive — show neutral message
+      // with actual measured buffer rate instead of unreliable API numbers
+      const measuredInfo = throughputRatio !== null
+        ? `Buffer filling at ${(throughputRatio * 100).toFixed(0)}% of needed speed`
+        : 'Data arriving slowly';
+      return {
+        type: 'slow_network',
+        icon: 'wifi_off',
+        label: 'Slow Data Transfer',
+        detail: avgBitrateMbps > 0
+          ? `${measuredInfo} · Video needs ~${avgBitrateMbps.toFixed(1)} Mbps`
+          : measuredInfo,
+        color: 'network'
+      };
     }
 
     // --- Fallback ---
@@ -300,10 +320,15 @@ const VideoPlayer = ({
           setTorrentStats(stats);
           setNetworkStatus(stats.peers > 0 ? 'connected' : 'seeking');
 
-          // Calculate Buffer Health
+          // Calculate Buffer Health using actual video bitrate
           if (videoRef.current && stats.downloadSpeed > 0) {
-            const currentBitrate = videoRef.current.playbackRate * 1024 * 1024; // Rough estimate 1MB/s
-            const health = Math.min(100, (stats.downloadSpeed / currentBitrate) * 100);
+            const videoDur = videoRef.current.duration;
+            const fileSize = stats.size || 0;
+            // Estimate actual bitrate from file size and duration (bytes/sec)
+            const actualBitrate = (fileSize > 0 && videoDur > 0)
+              ? (fileSize / videoDur) * videoRef.current.playbackRate
+              : videoRef.current.playbackRate * 1024 * 1024; // Fallback: 1MB/s
+            const health = Math.min(100, (stats.downloadSpeed / actualBitrate) * 100);
             setBufferHealth(health);
           }
         }
@@ -790,35 +815,26 @@ const VideoPlayer = ({
       {swipeIndicator && <div className="swipe-indicator">{swipeIndicator}</div>}
 
       {isLoading && (
-        <div className="video-loading">
-          {/* First Row: Spinner and Text */}
-          <div className="loading-header">
-            <Loader2 className="loading-spinner spinning" size={18} />
-            <span>Buffering {Math.round(bufferHealth)}%</span>
-          </div>
-
-          {/* Second Row: Health Bar */}
-          <div className="buffer-health-bar">
-            <div
-              className={`buffer-health-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}
-              style={{ width: `${Math.max(bufferHealth, 5)}%` }}
-            />
-          </div>
+        <div className={`buffering-center-icon ${bufferingReason ? `ring-${bufferingReason.color}` : 'ring-warning'}`}>
+          {bufferingReason?.icon === 'download' && <Download size={28} />}
+          {bufferingReason?.icon === 'wifi_off' && <WifiOff size={28} />}
+          {bufferingReason?.icon === 'server' && <Server size={28} />}
+          {(!bufferingReason || bufferingReason.icon === 'loader') && <Loader2 size={28} className="spinning" />}
         </div>
       )}
 
       {isLoading && bufferingReason && (
-        <div className={`buffering-reason-toast ${showControls ? 'with-controls' : 'without-controls'}`}>
-          <div className="toast-content-row">
-            <div className={`toast-primary-reason toast-color-${bufferingReason.color}`}>
-              {bufferingReason.icon === 'download' && <Download size={14} />}
-              {bufferingReason.icon === 'wifi_off' && <WifiOff size={14} />}
-              {bufferingReason.icon === 'server' && <Server size={14} />}
-              {bufferingReason.icon === 'loader' && <Loader2 size={14} className="spinning" />}
-              <span>{bufferingReason.label}</span>
-            </div>
+        <div className={`buffering-toast ${showControls ? 'toast-above-controls' : 'toast-bottom'}`}>
+          <div className={`buffering-toast-icon toast-icon-${bufferingReason.color}`}>
+            {bufferingReason.icon === 'download' && <Download size={14} />}
+            {bufferingReason.icon === 'wifi_off' && <WifiOff size={14} />}
+            {bufferingReason.icon === 'server' && <Server size={14} />}
+            {bufferingReason.icon === 'loader' && <Loader2 size={14} className="spinning" />}
+          </div>
+          <div className="buffering-toast-content">
+            <span className="buffering-toast-label">{bufferingReason.label}</span>
             {bufferingReason.detail && (
-              <span className="hide-on-mobile toast-secondary-stat">{bufferingReason.detail}</span>
+              <span className="buffering-toast-detail hide-on-mobile">{bufferingReason.detail}</span>
             )}
           </div>
         </div>

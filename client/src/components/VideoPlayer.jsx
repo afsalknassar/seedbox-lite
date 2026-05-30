@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward,
-  Settings, Download, Loader2, Users, Activity, Wifi, WifiOff,
-  TrendingUp, TrendingDown, Subtitles, Languages, Search, Globe, X, Minimize2
+  Settings, Download, Users, Activity,
+  TrendingUp, TrendingDown, Subtitles, X
 } from 'lucide-react';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
@@ -60,6 +60,169 @@ const VideoPlayer = ({
   const lastTimeUpdateRef = useRef(0);
   const progressSaveTimerRef = useRef(Date.now());
   const controlsTimeoutRef = useRef(null);
+
+  // ==========================================
+  // ROBUST BUFFERING REASON DIAGNOSTICS
+  // ==========================================
+
+  // Helper: get seconds of data buffered ahead of current playhead
+  const getBufferAhead = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !video.buffered || video.buffered.length === 0) return 0;
+    const ct = video.currentTime;
+    for (let i = 0; i < video.buffered.length; i++) {
+      if (video.buffered.start(i) <= ct && video.buffered.end(i) > ct) {
+        return video.buffered.end(i) - ct;
+      }
+    }
+    return 0;
+  }, []);
+
+  // Helper: estimate real client throughput from buffer-ahead growth (Mbps)
+  const estimateRealThroughput = useCallback(() => {
+    const history = bufferAheadHistoryRef.current;
+    if (history.length < 2) return null;
+    const oldest = history[0];
+    const newest = history[history.length - 1];
+    const elapsedSec = (newest.time - oldest.time) / 1000;
+    if (elapsedSec < 1) return null;
+    const bufferGrowth = newest.bufferAhead - oldest.bufferAhead; // seconds of video gained
+    // If buffer isn't growing, throughput ≈ 0
+    if (bufferGrowth <= 0) return 0;
+    // Rough: bufferGrowth seconds of video arrived in elapsedSec seconds of wall-clock
+    // ratio > 1 means we're downloading faster than real-time
+    return bufferGrowth / elapsedSec; // ratio, not Mbps — we use this comparatively
+  }, []);
+
+  // Core diagnostic function
+  const diagnoseBufferingReason = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return null;
+
+    const now = Date.now();
+    const bufferAhead = getBufferAhead();
+    const timeSinceSeek = now - lastSeekTimeRef.current;
+    const timeSinceBufferingStart = bufferingStartTimeRef.current ? now - bufferingStartTimeRef.current : 0;
+    const torrentProgress = typeof torrentStats.progress === 'number' && !isNaN(torrentStats.progress) ? torrentStats.progress : 0;
+    const torrentDlSpeed = typeof torrentStats.downloadSpeed === 'number' ? torrentStats.downloadSpeed : 0;
+    const peers = typeof torrentStats.peers === 'number' ? torrentStats.peers : 0;
+    const torrentDone = torrentProgress >= 0.999;
+    const videoDuration = video.duration || 0;
+    const fileSize = torrentStats.size || 0;
+
+    // Record buffer-ahead for throughput estimation (keep last 10 samples, ~1s apart)
+    const hist = bufferAheadHistoryRef.current;
+    if (hist.length === 0 || now - hist[hist.length - 1].time >= 500) {
+      hist.push({ time: now, bufferAhead });
+      if (hist.length > 10) hist.shift();
+    }
+
+    // --- State 1: Initial load ---
+    if (videoDuration === 0 || (video.readyState < 2 && timeSinceBufferingStart < 15000)) {
+      return { type: 'initial', label: 'Loading', color: 'default' };
+    }
+
+    // --- State 2: Seeking ---
+    if (timeSinceSeek < 5000) {
+      return { type: 'seek', label: 'Seeking', color: 'default' };
+    }
+
+    // --- State 3: Torrent section not yet downloaded ---
+    if (torrentHash && !torrentDone) {
+      const playheadFraction = videoDuration > 0 ? video.currentTime / videoDuration : 0;
+      if (playheadFraction > torrentProgress + 0.02) {
+        const pct = (torrentProgress * 100).toFixed(0);
+        const dlMbps = (torrentDlSpeed / 1024 / 1024).toFixed(1);
+        return {
+          type: 'torrent_ahead',
+          label: 'Downloading',
+          hint: `${pct}% done · ${dlMbps} MB/s`,
+          color: 'download'
+        };
+      }
+      return { type: 'torrent_downloading', label: 'Buffering', color: 'default' };
+    }
+
+    // --- State 4: Slow connection (browser API confirms it) ---
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const connEffectiveType = conn?.effectiveType;
+    const connDownlink = conn?.downlink;
+    const avgBitrateMbps = (fileSize > 0 && videoDuration > 0)
+      ? (fileSize * 8) / (1024 * 1024) / videoDuration : 0;
+    const isBrowserReportingSlow = (
+      (connEffectiveType && ['slow-2g', '2g', '3g'].includes(connEffectiveType)) ||
+      (connDownlink != null && avgBitrateMbps > 0 && connDownlink < avgBitrateMbps * 0.8)
+    );
+    if (isBrowserReportingSlow) {
+      // Build a plain-language speed hint the user can actually understand
+      let hint = null;
+      if (connDownlink != null && avgBitrateMbps > 0) {
+        hint = `Your speed: ~${connDownlink.toFixed(1)} Mbps · Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`;
+      } else if (connEffectiveType) {
+        hint = `Network type: ${connEffectiveType.toUpperCase()} — too slow for smooth playback`;
+      }
+      return { type: 'slow_network', label: 'Slow Connection', hint, color: 'network' };
+    }
+
+    // --- State 5: Buffer starved / prolonged wait ---
+    const throughputRatio = estimateRealThroughput();
+    const isBufferStarved = throughputRatio !== null && throughputRatio < 0.5;
+    if (isBufferStarved || (timeSinceBufferingStart > 5000 && bufferAhead < 1)) {
+      const hint = avgBitrateMbps > 0 ? `Video needs ~${avgBitrateMbps.toFixed(1)} Mbps` : null;
+      return { type: 'slow', label: 'Buffering', hint, color: 'network' };
+    }
+
+    // --- Fallback ---
+    return { type: 'generic', label: 'Buffering', color: 'default' };
+
+  }, [torrentStats, torrentHash, getBufferAhead, estimateRealThroughput]);
+
+  // Effect: run diagnostics while buffering, with debouncing
+  useEffect(() => {
+    if (!isLoading) {
+      // Reset when buffering stops
+      bufferingStartTimeRef.current = null;
+      bufferAheadHistoryRef.current = [];
+      reasonStableCountRef.current = 0;
+      prevBufferingReasonRef.current = null;
+      setBufferingReason(null);
+      return;
+    }
+
+    // Mark buffering start
+    if (!bufferingStartTimeRef.current) {
+      bufferingStartTimeRef.current = Date.now();
+      bufferAheadHistoryRef.current = [];
+    }
+
+    // Run diagnostics on an interval while buffering
+    const intervalId = setInterval(() => {
+      const newReason = diagnoseBufferingReason();
+      if (!newReason) return;
+
+      // Debounce: only update the displayed reason if it's been stable for 2 cycles (1s)
+      if (prevBufferingReasonRef.current?.type === newReason.type) {
+        reasonStableCountRef.current++;
+      } else {
+        reasonStableCountRef.current = 0;
+      }
+      prevBufferingReasonRef.current = newReason;
+
+      // Show immediately on first diagnosis, then debounce changes
+      if (reasonStableCountRef.current >= 1 || !bufferingReason) {
+        setBufferingReason(newReason);
+      }
+    }, 500);
+
+    // Also run immediately
+    const immediateReason = diagnoseBufferingReason();
+    if (immediateReason && !bufferingReason) {
+      setBufferingReason(immediateReason);
+      prevBufferingReasonRef.current = immediateReason;
+    }
+
+    return () => clearInterval(intervalId);
+  }, [isLoading, diagnoseBufferingReason]);
 
   // ==========================================
   // 1. SAFE POLLING & BUFFER HEALTH
@@ -527,19 +690,20 @@ const VideoPlayer = ({
       {swipeIndicator && <div className="swipe-indicator">{swipeIndicator}</div>}
 
       {isLoading && (
-        <div className="video-loading">
-          {/* First Row: Spinner and Text */}
-          <div className="loading-header">
-            <Loader2 className="loading-spinner spinning" size={18} />
-            <span>Buffering {Math.round(bufferHealth)}%</span>
-          </div>
-
-          {/* Second Row: Health Bar */}
-          <div className="buffer-health-bar">
-            <div
-              className={`buffer-health-fill ${bufferHealth > 70 ? 'good' : bufferHealth > 30 ? 'medium' : 'poor'}`}
-              style={{ width: `${Math.max(bufferHealth, 5)}%` }}
-            />
+        <div className="buffering-overlay">
+          <div className={`buffering-card ${bufferingReason?.color === 'download' ? 'bcard-download' : bufferingReason?.color === 'network' ? 'bcard-network' : 'bcard-default'}`}>
+            {/* Animated dots */}
+            <div className="buffering-dots">
+              <span /><span /><span />
+            </div>
+            {/* Label */}
+            <span className="buffering-card-label">
+              {bufferingReason?.label || 'Buffering'}
+            </span>
+            {/* Speed hint — only shown when relevant */}
+            {bufferingReason?.hint && (
+              <span className="buffering-card-hint">{bufferingReason.hint}</span>
+            )}
           </div>
         </div>
       )}

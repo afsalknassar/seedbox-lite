@@ -60,52 +60,6 @@ async function fetchIMDBData(torrentName) {
   const tcKey = process.env.TC_API_KEY;
   const fetchOpts = { headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' } };
 
-  //  Strategy 1: TorrentClaw iterative search (most reliable, but has bot protection, so some production environments may get 404 Forbidden)
-
-  // for (const query of candidates) {
-
-  //   if (!query || query.length < 2) continue;
-
-  //   console.log(`   ➔ Asking TorrentClaw: "${query}"`);
-
-  //   // I see you added your API key to the URL. Make sure it stays here!
-  //   const tcUrl = `https://my-api-proxy.afsalknasser3.workers.dev/v1/search?q=${encodeURIComponent(query)}&limit=1&api_key=${tcKey}`;
-
-  //   try {
-  //     // Pass the custom headers into the fetch request
-  //     const tcData = await fetchWithTimeout(tcUrl,fetchOpts,8000);
-
-  //     if (tcData && tcData.results && tcData.results.length > 0) {
-  //       const hit = tcData.results[0];
-  //       console.log(`✅ TorrentClaw Match Found! -> ${hit.title}`);
-
-  //       const result = {
-  //         Title: hit.title,
-  //         Year: hit.year,
-  //         imdbRating: hit.ratingImdb || hit.ratingTmdb,
-  //         Plot: hit.overview,
-  //         Poster: hit.posterUrl,
-  //         Backdrop: hit.backdropUrl,
-  //         Genre: hit.genres ? hit.genres.join(', ') : null,
-  //         imdbID: hit.imdbId,
-  //         tmdbID: hit.tmdbId,
-  //         Type: hit.contentType || 'movie',
-  //         source: 'torrentclaw'
-  //       };
-
-  //       console.log(tcData);
-
-  //       imdbCache.set(torrentName, result);
-  //       return result;
-  //     }
-  //   } catch (e) {
-  //     console.log(`   ⚠️ TorrentClaw query failed/timeout: ${e.message}`);
-  //   }
-  // }
-  // console.log(`❌ TorrentClaw exhausted. Moving to Tier 2...`);
-
-
-
   // STRATEGY 1: CONCURRENT TMDB SEARCH
   console.log(`\n🔍 [TMDB] Starting concurrent search...`);
   

@@ -27,7 +27,7 @@ const { client, torrents, torrentIds, torrentNames, hashToName, nameToHash, isCl
 async function fetchWithTimeout(url, options = {}, timeout = 8000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
-  
+
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
     clearTimeout(id);
@@ -120,7 +120,7 @@ function cleanTorrentName(torrentName) {
  */
 function generateSearchCandidates(torrentName) {
   console.log(`\n🧹 [CANDIDATE GEN] Analyzing: "${torrentName}"`);
-  
+
   let cleaned = torrentName.replace(/(?:www\.|https?:\/\/)[^\s]+|\b[a-zA-Z0-9]+\.[a-z]{2,8}\b(?:\s*-\s*)?/gi, '').replace(/\.[a-z0-9]{3,4}$/i, '');
   const yearMatch = cleaned.match(/\b(19\d{2}|20\d{2})\b/);
   const year = yearMatch ? yearMatch[0] : null;
@@ -431,9 +431,9 @@ const loadTorrentFromId = (torrentId) => {
  */
 const disableSeedingForCompletedTorrents = () => {
   let count = 0;
-  
+
   console.log(`🛑 [SEEDING MANAGER] Checking completed torrents...`);
-  
+
   client.torrents.forEach(torrent => {
     if (torrent.progress >= 1 && !torrent.paused) {
       torrent.pause();
@@ -443,13 +443,13 @@ const disableSeedingForCompletedTorrents = () => {
       console.log(`   - Disabled seeding for: ${torrent.name}`);
     }
   });
-  
+
   if (count > 0) {
     console.log(`✅ [SEEDING MANAGER] Disabled seeding for ${count} torrents`);
   } else {
     console.log(`ℹ️ [SEEDING MANAGER] No completed torrents found`);
   }
-  
+
   return count;
 };
 

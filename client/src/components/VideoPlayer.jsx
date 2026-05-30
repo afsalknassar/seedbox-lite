@@ -42,6 +42,14 @@ const VideoPlayer = ({
   const [bufferedPercent, setBufferedPercent] = useState(0);
   const [bufferRanges, setBufferRanges] = useState([]);
 
+  // Robust Buffering Reason State
+  const [bufferingReason, setBufferingReason] = useState(null);
+  const bufferingStartTimeRef = useRef(null);
+  const lastSeekTimeRef = useRef(0);
+  const bufferAheadHistoryRef = useRef([]); // [{time, bufferAhead}] for throughput measurement
+  const prevBufferingReasonRef = useRef(null); // debounce: hold previous reason
+  const reasonStableCountRef = useRef(0); // debounce: how many cycles the new reason has been stable
+
   // Subtitles
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(false);
@@ -239,10 +247,15 @@ const VideoPlayer = ({
           setTorrentStats(stats);
           setNetworkStatus(stats.peers > 0 ? 'connected' : 'seeking');
 
-          // Calculate Buffer Health
+          // Calculate Buffer Health using actual video bitrate
           if (videoRef.current && stats.downloadSpeed > 0) {
-            const currentBitrate = videoRef.current.playbackRate * 1024 * 1024; // Rough estimate 1MB/s
-            const health = Math.min(100, (stats.downloadSpeed / currentBitrate) * 100);
+            const videoDur = videoRef.current.duration;
+            const fileSize = stats.size || 0;
+            // Estimate actual bitrate from file size and duration (bytes/sec)
+            const actualBitrate = (fileSize > 0 && videoDur > 0)
+              ? (fileSize / videoDur) * videoRef.current.playbackRate
+              : videoRef.current.playbackRate * 1024 * 1024; // Fallback: 1MB/s
+            const health = Math.min(100, (stats.downloadSpeed / actualBitrate) * 100);
             setBufferHealth(health);
           }
         }
@@ -505,6 +518,7 @@ const VideoPlayer = ({
 
   const handleSeekEnd = () => {
     if (!isScrubbing || !videoRef.current) return;
+    lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
     videoRef.current.currentTime = scrubTime;
     setCurrentTime(scrubTime);
     setIsScrubbing(false);
@@ -539,6 +553,7 @@ const VideoPlayer = ({
 
   const handleTouchEnd = () => {
     if (touchRef.current.isSeeking && videoRef.current) {
+      lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
       videoRef.current.currentTime = scrubTime;
       setCurrentTime(scrubTime);
       setSwipeIndicator(null);
@@ -556,6 +571,7 @@ const VideoPlayer = ({
 
   const skip = (seconds) => {
     const video = videoRef.current;
+    lastSeekTimeRef.current = Date.now(); // Mark seek for buffering diagnostics
     video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seconds));
   };
 
@@ -578,11 +594,47 @@ const VideoPlayer = ({
     setShowSettings(false);
   };
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     const container = videoRef.current.parentElement;
-    if (!document.fullscreenElement) container.requestFullscreen?.() || container.webkitRequestFullscreen?.();
-    else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
-    setIsFullscreen(!document.fullscreenElement);
+    if (!document.fullscreenElement) {
+      try {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+          container.webkitRequestFullscreen();
+        }
+      } catch (e) {
+        console.error('Fullscreen request error:', e);
+      }
+
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.lock) {
+          await window.screen.orientation.lock('landscape');
+        }
+      } catch (e) {
+        console.log('Orientation lock error:', e);
+      }
+      setIsFullscreen(true);
+    } else {
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+      } catch (e) {
+        console.error('Fullscreen exit error:', e);
+      }
+
+      try {
+        if (window.screen && window.screen.orientation && window.screen.orientation.unlock) {
+          window.screen.orientation.unlock();
+        }
+      } catch (e) {
+        console.log('Orientation unlock error:', e);
+      }
+      setIsFullscreen(false);
+    }
   };
 
   const formatTime = (time) => {
@@ -708,8 +760,6 @@ const VideoPlayer = ({
         </div>
       )}
 
-
-
       {/* FLOATING CONTROL PILL */}
       <div className={`video-controls ${showControls ? 'visible' : ''}`} onClick={(e) => e.stopPropagation()}>
 
@@ -735,7 +785,7 @@ const VideoPlayer = ({
             <div className="progress-played" style={{ width: `${(displayTime / duration) * 100}%` }} />
             <div className="progress-thumb" style={{ left: `${(displayTime / duration) * 100}%` }} />
             {torrentStats.progress > 0 && (
-              <div className="progress-torrent" style={{ width: `${torrentStats.progress}%` }} />
+              <div className="progress-torrent" style={{ width: `${torrentStats.progress * 100}%` }} />
             )}
           </div>
         </div>

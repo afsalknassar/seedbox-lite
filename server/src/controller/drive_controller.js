@@ -32,7 +32,7 @@ const uploadToDrive = async (req, res) => {
 
     // Generate unique upload ID
     const uploadId = `${infoHash}-${fileIdx}`;
-    
+
     // Initialize progress tracking
     activeUploads.set(uploadId, {
       progress: 0,
@@ -63,7 +63,7 @@ const startBackgroundUpload = async (drive, file, uploadId, torrent) => {
     file.select();
 
     const stream = file.createReadStream();
-    
+
     // Explicitly handle local file read errors to prevent crashing/hanging
     stream.on('error', (err) => {
       console.error(`❌ [STREAM ERROR] for ${uploadId}:`, err);
@@ -77,6 +77,10 @@ const startBackgroundUpload = async (drive, file, uploadId, torrent) => {
       name: file.name
     };
 
+    if (process.env.GOOGLE_DRIVE_FOLDER_ID) {
+      fileMetadata.parents = [process.env.GOOGLE_DRIVE_FOLDER_ID];
+    }
+
     // Very basic mime type detection based on extension
     const ext = file.name.split('.').pop().toLowerCase();
     const mimeTypes = {
@@ -89,7 +93,7 @@ const startBackgroundUpload = async (drive, file, uploadId, torrent) => {
       'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
       'pdf': 'application/pdf', 'zip': 'application/zip', 'rar': 'application/x-rar-compressed'
     };
-    
+
     const media = {
       mimeType: mimeTypes[ext] || 'application/octet-stream',
       body: stream
@@ -126,7 +130,7 @@ const startBackgroundUpload = async (drive, file, uploadId, torrent) => {
     // Give the frontend 5 minutes to fetch the final 'completed' or 'failed' state via SSE.
     setTimeout(() => {
       activeUploads.delete(uploadId);
-    }, 5 * 60 * 1000); 
+    }, 5 * 60 * 1000);
   }
 };
 
@@ -152,7 +156,7 @@ const uploadProgressSSE = (req, res) => {
   // Poll state and send updates
   const intervalId = setInterval(() => {
     const state = activeUploads.get(uploadId);
-    
+
     if (!state) {
       res.write(`data: ${JSON.stringify({ status: 'not_found' })}\n\n`);
       clearInterval(intervalId);
@@ -186,8 +190,23 @@ const getActiveUploads = (req, res) => {
   res.json(result);
 };
 
+const cancelUpload = (req, res) => {
+  const { uploadId } = req.params;
+  const state = activeUploads.get(uploadId);
+  if (state) {
+    state.status = 'failed';
+    state.error = 'Cancelled by user';
+    // We can also remove it entirely after a small delay
+    setTimeout(() => activeUploads.delete(uploadId), 5000);
+    res.json({ success: true, message: 'Upload cancelled' });
+  } else {
+    res.status(404).json({ error: 'Upload not found or already completed' });
+  }
+};
+
 module.exports = {
   uploadToDrive,
   uploadProgressSSE,
-  getActiveUploads
+  getActiveUploads,
+  cancelUpload
 };

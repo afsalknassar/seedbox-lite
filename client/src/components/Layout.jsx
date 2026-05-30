@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search, Folder, LogOut, Rss } from 'lucide-react';
+import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search, Folder, LogOut, Rss, Magnet, } from 'lucide-react';
 import { config } from '../config/environment';
 import { useAuth } from '../context/AuthContext';
 import '../assets/styles/Layout.css';
@@ -18,8 +18,10 @@ const Layout = () => {
 
   const navigationItems = [
     { path: '/', icon: Home, label: 'Home' },
+    { path: '/torrent-home', icon: Magnet, label: 'Explore' },
     { path: '/files', icon: Folder, label: 'Files' },
-    { path: '/rss', icon: Rss, label: 'RSS Reader' },
+    { path: '/rss', icon: Rss, label: 'RSS Feed' },
+
   ];
 
   useEffect(() => {
@@ -124,13 +126,13 @@ const Layout = () => {
               </Link>
             );
           })}
-          
+
           <button
             className="nav-item"
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              width: '100%', 
+            style={{
+              background: 'transparent',
+              border: 'none',
+              width: '100%',
               textAlign: 'left',
               cursor: 'pointer',
               fontFamily: 'inherit'
@@ -147,7 +149,7 @@ const Layout = () => {
 
         {!sidebarCollapsed && (
           <div className="cache-stats">
-            <div  className="cache-link">
+            <Link to="/files" className="cache-link">
 
               {/* Top Row: Icon, Title, and Percentage Badge */}
               <div className="cache-header">
@@ -175,7 +177,7 @@ const Layout = () => {
                 <span>{cacheStats.activeTorrents} active</span>
               </div>
 
-            </div>
+            </Link>
           </div>
         )}
 

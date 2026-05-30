@@ -7,16 +7,17 @@ import TorrentPageNetflix from './components/TorrentPageNetflix';
 import RssReaderPage from './components/RssReaderPage';
 import LoginScreen from './components/LoginScreen';
 import FilesPage from './components/FilesPage';
+import TorrentHome from './components/TorrentHome';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import './App.css';
 import { config } from './config/environment.js';
 
 // 1. Reusable spinner component
 const FullScreenLoader = ({ text }) => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     height: '100vh',
     background: 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
     color: '#ffffff'
@@ -58,6 +59,7 @@ const AuthenticatedApp = () => {
           <Route index element={<HomePage />} />
           <Route path="rss" element={<RssReaderPage />} />
           <Route path="files" element={<FilesPage />} />
+          <Route path="torrent-home" element={<TorrentHome />} />
         </Route>
       </Routes>
     </Router>

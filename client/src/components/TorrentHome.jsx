@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Flame, Star, Clock, Film, Library } from "lucide-react";
 import "../assets/styles/TorrentHome.css";
 import DetailPage from "./DetailPage";
 
@@ -33,6 +34,36 @@ const getRating = (item) =>
 const Spinner = () => (
   <div className="t-spinner-wrap"><div className="t-spinner" /></div>
 );
+
+const SkeletonCard = ({ layout }) => (
+  <div className={`t-card t-skeleton-card ${layout === 'list' ? 't-card-list' : ''}`}>
+    <div className="t-card-poster t-skeleton-pulse"></div>
+    <div className="t-card-info">
+      <div className="t-skeleton-text t-skeleton-title t-skeleton-pulse"></div>
+      <div className="t-skeleton-text t-skeleton-meta t-skeleton-pulse"></div>
+      {layout === 'list' && (
+        <>
+          <div className="t-skeleton-text t-skeleton-desc t-skeleton-pulse" style={{ marginTop: '8px' }}></div>
+          <div className="t-skeleton-text t-skeleton-desc t-skeleton-pulse" style={{ width: '80%' }}></div>
+        </>
+      )}
+    </div>
+  </div>
+);
+
+const MovieGridSkeleton = ({ layout, count = 6, isExpanded }) => {
+  let gridClass = "t-row";
+  if (layout === "list") gridClass = "t-list";
+  else if (isExpanded || layout === "grid") gridClass = "t-grid";
+
+  return (
+    <div className={gridClass}>
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonCard key={i} layout={layout} />
+      ))}
+    </div>
+  );
+};
 
 const Empty = ({ icon, msg, sub }) => (
   <div className="t-empty">
@@ -106,7 +137,7 @@ const MovieCard = ({ item, onClick, layout }) => {
 };
 
 const MovieGrid = ({ items, onSelect, loading, emptyMsg, isExpanded, layout }) => {
-  if (loading) return <Spinner />;
+  if (loading) return <MovieGridSkeleton layout={layout} isExpanded={isExpanded} count={isExpanded || layout === 'grid' ? 12 : 6} />;
   if (!items?.length) return <Empty icon="🎬" msg={emptyMsg || "Nothing here yet"} />;
 
   let gridClass = "t-row";
@@ -276,7 +307,21 @@ const Autocomplete = ({ query, onSelect }) => {
 
 const GENRES = ["Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy", "History", "Horror", "Music", "Mystery", "Romance", "Science Fiction", "Thriller", "TV Movie", "War", "Western"];
 
-const Hero = ({ item, onSelect }) => {
+const HeroSkeleton = () => (
+  <div className="t-hero t-skeleton-pulse" style={{ background: 'rgba(255,255,255,0.02)' }}>
+    <div className="t-hero-content" style={{ paddingBottom: '2.5rem', width: '100%', maxWidth: '800px' }}>
+      <div className="t-skeleton-text" style={{ width: '140px', height: '28px', borderRadius: '100px', marginBottom: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+      <div className="t-skeleton-text" style={{ width: '70%', height: '64px', marginBottom: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+      <div className="t-skeleton-text" style={{ width: '40%', height: '20px', marginBottom: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+      <div className="t-skeleton-text" style={{ width: '90%', height: '16px', marginBottom: '8px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+      <div className="t-skeleton-text" style={{ width: '80%', height: '16px', marginBottom: '24px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+      <div className="t-skeleton-text" style={{ width: '130px', height: '45px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+    </div>
+  </div>
+);
+
+const Hero = ({ item, onSelect, loading }) => {
+  if (loading) return <HeroSkeleton />;
   if (!item) return null;
   const r = getRating(item);
   const title = item.title || item.name || "Untitled";
@@ -470,11 +515,11 @@ export default function HomeTabCopy() {
 
       {view === "home" && (
         <>
-          <Hero item={data.trending[0]} onSelect={handleSelect} />
+          <Hero item={data.trending[0]} loading={loading.trending} onSelect={handleSelect} />
 
           <div className="t-home-wrap">
             <Section
-              title="🔥 Trending"
+              title={<><Flame size={24} className="t-section-icon flame" /> Trending</>}
               action={
                 <div className="t-control-bar" style={{ margin: 0 }}>
                   <div className="t-type-seg">
@@ -496,10 +541,10 @@ export default function HomeTabCopy() {
               loading={loading.trending}
             />
 
-            <Section title="⭐ Most Popular" items={data.popular} onSelect={handleSelect} loading={loading.popular} />
-            <Section title="🕒 Recently Added" items={data.recent} onSelect={handleSelect} loading={loading.recent} />
-            <Section title="🎬 User Requested" items={data.userrequested} onSelect={handleSelect} loading={loading.userrequested} />
-            <Section title="📚 Collections" items={data.collections} onSelect={handleSelect} loading={loading.collections} />
+            <Section title={<><Star size={24} className="t-section-icon star" /> Most Popular</>} items={data.popular} onSelect={handleSelect} loading={loading.popular} />
+            <Section title={<><Clock size={24} className="t-section-icon clock" /> Recently Added</>} items={data.recent} onSelect={handleSelect} loading={loading.recent} />
+            <Section title={<><Film size={24} className="t-section-icon film" /> User Requested</>} items={data.userrequested} onSelect={handleSelect} loading={loading.userrequested} />
+            <Section title={<><Library size={24} className="t-section-icon library" /> Collections</>} items={data.collections} onSelect={handleSelect} loading={loading.collections} />
           </div>
         </>
       )}
@@ -572,7 +617,7 @@ export default function HomeTabCopy() {
 
 
           <div className="t-section t-search-results">
-            {searching && searchRes.length === 0 ? <Spinner />
+            {searching && searchRes.length === 0 ? <MovieGridSkeleton layout="grid" count={12} isExpanded={true} />
               : searchRes.length > 0
                 ? <>
                   <MovieGrid items={searchRes} layout="grid" onSelect={handleSelect} loading={false} isExpanded={true} />

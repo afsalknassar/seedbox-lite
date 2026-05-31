@@ -49,7 +49,36 @@ body {
   letter-spacing: -0.5px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.t-section-icon {
+  stroke-width: 2.2;
+}
+
+.t-section-icon.flame {
+  color: #ef4444;
+  fill: rgba(239, 68, 68, 0.2);
+}
+
+.t-section-icon.star {
+  color: #f59e0b;
+  fill: rgba(245, 158, 11, 0.2);
+}
+
+.t-section-icon.clock {
+  color: #3b82f6;
+  fill: rgba(59, 130, 246, 0.15);
+}
+
+.t-section-icon.film {
+  color: #8b5cf6;
+  fill: rgba(139, 92, 246, 0.15);
+}
+
+.t-section-icon.library {
+  color: #10b981;
+  fill: rgba(16, 185, 129, 0.15);
 }
 
 .t-select {
@@ -1073,4 +1102,47 @@ body {
     font-size: 0.75rem;
     padding: 0.28rem 0.65rem;
   }
+}
+
+/* ─── SKELETON LOADER ───────────────────────────────────────── */
+.t-skeleton-card {
+  pointer-events: none;
+}
+
+.t-skeleton-pulse {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite ease-in-out;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.t-skeleton-text {
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.t-skeleton-title {
+  height: 14px;
+  width: 70%;
+  margin-bottom: 8px;
+  margin-top: 4px;
+}
+
+.t-skeleton-meta {
+  height: 10px;
+  width: 40%;
+}
+
+.t-skeleton-desc {
+  height: 10px;
+  width: 100%;
+  margin-bottom: 6px;
 }

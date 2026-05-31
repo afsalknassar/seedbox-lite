@@ -766,7 +766,7 @@ const VideoPlayer = ({
 
       </video>
 
-      <div className="controls-gradient-top" />
+      <div className={`controls-gradient-top ${showControls ? 'visible' : ''}`} />
 
       {/* NEW TOP BAR: Title & Close Button are segregated here */}
       {/* TOP BAR */}

@@ -42,8 +42,8 @@
   transition: opacity 0.3s ease;
 }
 
-.video-controls.visible ~ .controls-gradient-top,
-.top-bar.visible {
+.top-bar.visible + .controls-gradient-top,
+.controls-gradient-top.visible {
   opacity: 1;
 }
 

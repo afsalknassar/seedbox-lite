@@ -1,10 +1,11 @@
 :root {
-  --bg-color: #0d1117; 
+  --bg-color: #0d1117;
   --card-bg: #161b22;
   --text-main: #f0f6fc;
   --text-muted: #8b949e;
   --accent: #3b82f6;
-  --rating-bg: rgba(0, 0, 0, 0.6); /* Slightly more transparent for softness */
+  --rating-bg: rgba(0, 0, 0, 0.6);
+  /* Slightly more transparent for softness */
 }
 
 * {
@@ -35,6 +36,8 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .t-section-title {
@@ -49,7 +52,8 @@ body {
   color: var(--text-main);
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 6px 14px;
-  border-radius: 100px; /* Perfectly smooth pill shape */
+  border-radius: 100px;
+  /* Perfectly smooth pill shape */
   font-size: 0.85rem;
   font-weight: 500;
   outline: none;
@@ -57,14 +61,57 @@ body {
   transition: all 0.3s ease;
 }
 
+.t-select option {
+  background: var(--bg-color);
+  color: var(--text-main);
+}
+
 .t-select:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.t-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.t-view-all {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.t-view-all:hover {
+  color: #60a5fa;
 }
 
 .t-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 1.25rem;
+}
+
+.t-row {
+  display: flex;
+  overflow-x: auto;
+  gap: 1.25rem;
+  padding-bottom: 1rem;
+  scrollbar-width: none; /* Firefox */
+  -webkit-overflow-scrolling: touch;
+}
+
+.t-row::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.t-row .t-card {
+  flex: 0 0 auto;
+  width: 160px;
 }
 
 /* ─── CARD SETTINGS (SMOOTH EDGES) ─────────────────────────── */
@@ -85,10 +132,11 @@ body {
   width: 100%;
   aspect-ratio: 2 / 3;
   background-color: var(--card-bg);
-  border-radius: 16px; /* Increased for a much softer, modern look */
+  border-radius: 16px;
+  /* Increased for a much softer, modern look */
   overflow: hidden;
   /* Softer, wider, more elegant shadow */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); 
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 .t-card-poster img {
@@ -113,9 +161,10 @@ body {
   top: 10px;
   right: 10px;
   background: var(--rating-bg);
-  color: #fbbf24; 
+  color: #fbbf24;
   padding: 5px 8px;
-  border-radius: 10px; /* Smoother corner */
+  border-radius: 10px;
+  /* Smoother corner */
   font-size: 0.75rem;
   font-weight: 700;
   backdrop-filter: blur(8px);
@@ -181,7 +230,7 @@ body {
 }
 
 .t-hero-img-wrapper {
-  border-radius:10px;
+  border-radius: 10px;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -198,15 +247,20 @@ body {
 }
 
 @keyframes slowZoom {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.1); }
+  0% {
+    transform: scale(1);
+  }
+
+  100% {
+    transform: scale(1.1);
+  }
 }
 
 .t-hero-overlay {
-  border-radius:10px;
+  border-radius: 10px;
   position: absolute;
   inset: 0;
-  background: 
+  background:
     linear-gradient(to top, var(--bg-color) 0%, rgba(13, 17, 23, 0.3) 50%, transparent 100%),
     linear-gradient(to right, var(--bg-color) 0%, rgba(13, 17, 23, 0.2) 60%, transparent 100%);
   z-index: 2;
@@ -230,7 +284,8 @@ body {
   color: white;
   background: rgba(255, 255, 255, 0.15);
   padding: 6px 14px;
-  border-radius: 100px; /* Smooth pill shape */
+  border-radius: 100px;
+  /* Smooth pill shape */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   margin-bottom: 12px;
@@ -245,9 +300,17 @@ body {
 }
 
 @keyframes pulseDot {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 .t-hero-title {
@@ -255,7 +318,7 @@ body {
   font-weight: 800;
   line-height: 1.05;
   margin-bottom: 12px;
-  text-shadow: 0px 4px 16px rgba(0,0,0,0.8);
+  text-shadow: 0px 4px 16px rgba(0, 0, 0, 0.8);
   letter-spacing: -0.5px;
 }
 
@@ -282,13 +345,14 @@ body {
 }
 
 .t-type-badge {
-  border: 1px solid rgba(255,255,255,0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   padding: 3px 10px;
-  border-radius: 8px; /* Smoothed from 4px */
+  border-radius: 8px;
+  /* Smoothed from 4px */
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .t-hero-actions {
@@ -297,13 +361,15 @@ body {
 }
 
 /* Rounded, soft pill buttons */
-.t-hero-btn-primary, .t-hero-btn-secondary {
+.t-hero-btn-primary,
+.t-hero-btn-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 12px 28px;
-  border-radius: 100px; /* Perfect pill shape */
+  border-radius: 100px;
+  /* Perfect pill shape */
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
@@ -335,7 +401,9 @@ body {
 }
 
 @media (max-width: 400px) {
-  .t-hero-btn-primary, .t-hero-btn-secondary {
+
+  .t-hero-btn-primary,
+  .t-hero-btn-secondary {
     padding: 10px 20px;
     font-size: 0.85rem;
   }
@@ -347,10 +415,12 @@ body {
   bottom: 0;
   left: 0;
   width: 100%;
-  background: rgba(22, 27, 34, 0.85); 
-  backdrop-filter: blur(20px); /* Increased blur for a softer glass effect */
+  background: rgba(22, 27, 34, 0.85);
+  backdrop-filter: blur(20px);
+  /* Increased blur for a softer glass effect */
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(255,255,255,0.05); /* Extremely soft border */
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  /* Extremely soft border */
   z-index: 100;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -375,7 +445,8 @@ body {
   justify-content: center;
   gap: 4px;
   font-size: 0.75rem;
-  font-weight: 600; /* Bolder nav text */
+  font-weight: 600;
+  /* Bolder nav text */
   flex: 1;
   height: 100%;
   cursor: pointer;
@@ -384,33 +455,597 @@ body {
 }
 
 .t-nav-btn svg {
-  flex-shrink: 0; 
+  flex-shrink: 0;
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .t-nav-btn.active {
-  color: var(--text-main); /* White instead of blue for a sleeker look */
+  color: var(--text-main);
+  /* White instead of blue for a sleeker look */
 }
 
 .t-nav-btn.active svg {
-  transform: translateY(-3px) scale(1.1); /* Smooth pop up when active */
-  color: var(--accent); /* Only icon turns blue */
+  transform: translateY(-3px) scale(1.1);
+  /* Smooth pop up when active */
+  color: var(--accent);
+  /* Only icon turns blue */
 }
 
 /* ─── MOBILE OPTIMIZATION ────────────────────────── */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .t-hero {
-     border-bottom-left-radius: 0;
-     border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
+
   .t-grid {
-    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
-    gap: 12px; 
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
+
+  .t-row {
+    gap: 8px;
+  }
+
+  .t-row .t-card {
+    width: 105px;
+  }
+
   .t-card-poster {
-    border-radius: 12px; /* Slightly tighter curves on small screens */
+    border-radius: 8px;
   }
+
   .t-card-title {
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+
+  .t-card-meta {
+    font-size: 0.7rem;
+  }
+}
+
+/* ─── TOP BAR (sticky search shell) ───────────────────────── */
+.t-top-bar-container {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+ 
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 12px 4% 20px;
+ 
+}
+
+/* Outer wrapper — keeps the dropdown relative to bar */
+.t-searchbar-outer {
+  position: relative;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* The actual search field */
+.t-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 11px 14px;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.t-searchbar:focus-within {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04);
+}
+
+/* Search icon */
+.t-search-icon {
+  color: rgba(255, 255, 255, 0.28);
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.t-searchbar:focus-within .t-search-icon {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Input */
+.t-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.92rem;
+  outline: none;
+  min-width: 0;
+  letter-spacing: 0.01em;
+}
+
+.t-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+/* Keyboard shortcut badge — shown when input is empty */
+.t-search-kbd {
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  user-select: none;
+}
+
+.t-searchbar:focus-within .t-search-kbd {
+  opacity: 0;
+}
+
+/* Clear ✕ button */
+.t-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.45);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.t-search-clear:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+
+.t-autocomplete {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #1a1f2e;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  z-index: 200;
+}
+
+/* Header row: "Suggestions" label + dismiss ✕ */
+.t-ac-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.t-ac-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.t-ac-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.t-ac-dismiss:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.t-ac-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 9px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.t-ac-item:last-child {
+  border-bottom: none;
+}
+
+.t-ac-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.t-ac-thumb {
+  width: 32px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.t-ac-name {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.t-ac-meta {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.72rem;
+  text-transform: capitalize;
+}
+
+/* ─── SEARCH PAGE LAYOUT ─────────────────────────────────── */
+.t-search-head {
+  padding: 1rem 4% 0;
+}
+
+/* ── Title row ── */
+.t-search-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.t-search-title-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.t-search-title-icon {
+  color: rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+
+.t-page-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.t-query-text {
+  color: #fff;
+  font-weight: 700;
+}
+
+.t-search-count {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.18rem 0.55rem;
+  border-radius: 50px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Unified control bar ── */
+.t-control-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 11px;
+  padding: 4px;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
+}
+.t-control-bar::-webkit-scrollbar { display: none; }
+
+/* Type segment: All / Movies / Shows */
+.t-type-seg {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.t-seg-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 0.32rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  letter-spacing: 0.01em;
+}
+
+.t-seg-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.t-seg-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Vertical divider between segment and selects */
+.t-bar-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* Dropdowns group */
+.t-filter-selects {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.t-filter-selects::-webkit-scrollbar { display: none; }
+
+/* Each icon+select pair */
+.t-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.32rem 0.65rem 0.32rem 0.55rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.t-select-wrap:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.t-select-wrap svg {
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.t-filter-select {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.76rem;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+  max-width: 90px;
+}
+
+.t-filter-select:focus,
+.t-filter-select:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.t-filter-select option {
+  background: #1a1f2e;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+
+
+/* ─── LIST VIEW ────────────────────────────────────────────── */
+.t-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.t-card-list {
+  flex-direction: row;
+  height: 100px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 8px;
+  gap: 12px;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.t-card-list:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.t-card-list .t-card-poster {
+  width: 62px;
+  min-width: 62px;
+  height: 100%;
+  aspect-ratio: unset;
+  border-radius: 7px;
+  box-shadow: none;
+}
+
+.t-card-list .t-card-info {
+  flex: 1;
+  padding: 2px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.t-card-list .t-card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.t-card-list-desc {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── LOAD MORE ────────────────────────────────────────────── */
+.t-loadmore {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.t-loadmore-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.65);
+  padding: 0.6rem 1.5rem;
+  border-radius: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.t-loadmore-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.t-loadmore-btn.loading {
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.t-loadmore-btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Spinner inside load more */
+.t-loadmore-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  animation: lm-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes lm-spin {
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .t-search-title-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .t-page-title {
+    font-size: 1.1rem;
+  }
+
+  .t-card-list {
+    height: 88px;
+    padding: 6px;
+    gap: 10px;
+  }
+
+  .t-card-list .t-card-poster {
+    width: 54px;
+    min-width: 54px;
+  }
+
+  .t-card-list .t-card-title {
     font-size: 0.85rem;
+  }
+
+  .t-card-list-desc {
+    font-size: 0.72rem;
+    -webkit-line-clamp: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .t-search-head {
+    padding: 0.85rem 4% 0.5rem;
+  }
+
+  .t-pill {
+    padding: 0.28rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .t-filter-row .t-select {
+    font-size: 0.75rem;
+    padding: 0.28rem 0.65rem;
   }
 }

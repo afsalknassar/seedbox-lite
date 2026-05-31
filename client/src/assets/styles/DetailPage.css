@@ -61,7 +61,7 @@
     z-index: 1;
     max-width: 1100px;
     margin: 0 auto;
-    padding: 1.5rem 5% 6rem;
+    padding: 1rem 5% 3rem;
 }
 
 /* ─── TOP BAR (back button) ────────────────────────────────── */
@@ -335,7 +335,6 @@
     background: var(--dp-surface);
     border: 1px solid var(--dp-border);
     color: var(--dp-muted);
-    padding: 0.35rem 0.75rem;
     border-radius: 8px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -350,9 +349,9 @@
 }
 
 .dp-verified-btn.active {
-    background: var(--dp-cyan-dim);
-    border-color: var(--dp-cyan-bdr);
-    color: var(--dp-cyan);
+    background: var(--dp-gold-dim);
+    border-color: rgba(245, 197, 24, .22);
+    color: var(--dp-gold);
 }
 
 /* ─── ACCORDION ────────────────────────────────────────────── */
@@ -368,6 +367,7 @@
     background: rgba(0, 0, 0, .25);
     overflow: hidden;
     transition: border-color 0.2s ease;
+    margin-bottom: 4px;
 }
 
 .dp-group:hover {
@@ -380,7 +380,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.85rem 1.1rem;
+    padding: 1rem 1rem;
     background: transparent;
     border: none;
     color: var(--dp-text);
@@ -469,8 +469,27 @@
 }
 
 .dp-q-badge.q-480p,
+.dp-badge.q-480p {
+    background: var(--dp-surface);
+    color: var(--dp-muted);
+    border-color: var(--dp-border);
+}
+
+.dp-q-badge.q-360p,
+.dp-badge.q-360p {
+    background: rgba(234, 179, 8, .1);
+    color: #eab308;
+    border-color: rgba(234, 179, 8, .2);
+}
+
+.dp-q-badge.q-cam,
+.dp-badge.q-cam {
+    background: rgba(239, 68, 68, .1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, .2);
+}
+
 .dp-q-badge.q-other,
-.dp-badge.q-480p,
 .dp-badge.q-other {
     background: var(--dp-surface);
     color: var(--dp-muted);
@@ -497,7 +516,7 @@
 }
 
 .dp-row {
-    padding: 0.75rem 1.1rem;
+    padding: 0.5rem 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, .04);
     cursor: pointer;
     transition: background 0.12s ease;
@@ -533,7 +552,7 @@
 
 /* Verified / unverified icons */
 .dp-verified-icon {
-    color: var(--dp-cyan);
+    color: var(--dp-gold);
     flex-shrink: 0;
 }
 
@@ -650,7 +669,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
-    padding: 0.85rem 1rem;
+    padding: 0.6rem 1rem;
     background: rgba(0, 0, 0, .18);
     border-radius: 8px;
     border: 1px solid var(--dp-border);
@@ -945,7 +964,7 @@
     }
 
     .dp-group-hdr {
-        padding: 0.75rem 0.9rem;
+        padding: 1rem 0.9rem;
     }
 
     .dp-detail-panel {

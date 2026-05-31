@@ -27,7 +27,7 @@ body {
 
 /* ─── UNIFORM GRID ────────────────────────────────────────── */
 .t-section {
-  padding: 0 4%;
+  
   margin-bottom: 2.5rem;
 }
 
@@ -35,16 +35,21 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-wrap: wrap;
   gap: 10px;
 }
 
 .t-section-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 800;
   color: var(--text-main);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .t-select {
@@ -76,18 +81,32 @@ body {
   gap: 12px;
 }
 
-.t-view-all {
-  background: transparent;
-  border: none;
-  color: var(--accent);
+.t-section-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.t-view-all-bottom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  padding: 8px 20px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.t-view-all:hover {
-  color: #60a5fa;
+.t-view-all-bottom:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
 }
 
 .t-grid {
@@ -368,7 +387,7 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 28px;
-  border-radius: 100px;
+  border-radius: 10px;
   /* Perfect pill shape */
   font-weight: 700;
   font-size: 0.95rem;
@@ -378,9 +397,8 @@ body {
 }
 
 .t-hero-btn-primary {
-  background: white;
-  color: black;
-  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+  background: #394C9F;
+  color: white;
 }
 
 .t-hero-btn-primary:hover {
@@ -473,10 +491,7 @@ body {
 
 /* ─── MOBILE OPTIMIZATION ────────────────────────── */
 @media (max-width: 768px) {
-  .t-hero {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-  }
+
 
   .t-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -484,11 +499,21 @@ body {
   }
 
   .t-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+    overflow-x: visible;
+    padding-bottom: 0;
   }
 
   .t-row .t-card {
-    width: 140px;
+    width: auto;
+    flex: none;
+  }
+
+  /* Limit items to 6 when collapsed on mobile */
+  .t-row .t-card:nth-child(n+7) {
+    display: none;
   }
 
   .t-card-poster {
@@ -513,14 +538,14 @@ body {
  
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  padding: 12px 4% 20px;
+  padding: 12px 1% 20px;
  
 }
 
 /* Outer wrapper — keeps the dropdown relative to bar */
 .t-searchbar-outer {
   position: relative;
-  max-width: 680px;
+  /* max-width: 680px; */
   margin: 0 auto;
 }
 

@@ -39,7 +39,6 @@
  * ----------------------------- */
 .mobile-header {
   display: none;
-  position: fixed;
   top: 0;
   left: 0;
   right: 0;
@@ -471,7 +470,7 @@
 
   .main-content,
   .main-content.expanded {
-    padding: calc(var(--header-height) + 24px) 24px 24px 24px;
+    padding: 24px 24px 24px 24px;
   }
 
   .mobile-overlay {
@@ -492,7 +491,7 @@
   .sidebar { width: 260px; }
   .main-content,
   .main-content.expanded {
-    padding: calc(var(--header-height) + 16px) 16px 16px 16px;
+    padding: 16px 16px 16px 16px;
   }
   .logo { font-size: 18px; }
   .nav-item { padding: 14px 16px; font-size: 14px; }

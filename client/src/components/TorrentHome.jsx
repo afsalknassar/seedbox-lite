@@ -134,16 +134,21 @@ const Section = ({ title, action, items, onSelect, loading, emptyMsg }) => {
     <div className="t-section">
       <div className="t-section-hd">
         <h2 className="t-section-title">{title}</h2>
-        <div className="t-section-actions">
-          {action}
-          {items?.length > 0 && (
-            <button className="t-view-all" onClick={() => setIsExpanded(!isExpanded)}>
-              {isExpanded ? "Show Less" : "View All"}
-            </button>
-          )}
-        </div>
+        {action && (
+          <div className="t-section-actions">
+            {action}
+          </div>
+        )}
       </div>
       <MovieGrid items={items} onSelect={onSelect} loading={loading} emptyMsg={emptyMsg} isExpanded={isExpanded} />
+      {items?.length > 0 && (
+        <div className="t-section-footer">
+          <button className="t-view-all-bottom" onClick={() => setIsExpanded(!isExpanded)}>
+            {isExpanded ? "Show Less" : "Show All"}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -310,10 +315,7 @@ const Hero = ({ item, onSelect }) => {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="m5 3 14 9-14 9V3z" /></svg>
             Play Now
           </button>
-          <button className="t-hero-btn-secondary" onClick={e => { e.stopPropagation(); onSelect(item); }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-            Details
-          </button>
+
         </div>
       </div>
     </div>
@@ -327,16 +329,16 @@ export default function HomeTabCopy() {
   const [trendingPeriod, setTrendingPeriod] = useState("daily");
 
   const [data, setData] = useState({ trending: [], popular: [], recent: [], collections: [], userrequested: [] });
-  
+
   // UPDATED: Initialize loading states to true so spinners show immediately
   const [loading, setLoading] = useState({
-      trending: true, 
-      popular: true, 
-      recent: true, 
-      collections: true, 
-      userrequested: true 
+    trending: true,
+    popular: true,
+    recent: true,
+    collections: true,
+    userrequested: true
   });
-  
+
   const setLoad = (k, v) => setLoading(p => ({ ...p, [k]: v }));
 
   // Search State
@@ -387,10 +389,10 @@ export default function HomeTabCopy() {
   // UPDATED: Included AbortController logic to stop race conditions
   const doSearch = useCallback(async (q, page = 1, append = false) => {
     if (!q.trim()) return;
-    
+
     // Cancel the previous request if it's still running
     if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
@@ -401,9 +403,9 @@ export default function HomeTabCopy() {
       if (typeFilter) params.type = typeFilter;
       if (genreFilter) params.genre = genreFilter;
       if (qualFilter) params.quality = qualFilter;
-      
+
       const d = await apiFetch("/api/v1/search", params, { signal });
-      
+
       const res = d.results || [];
       append ? setSearchRes(prev => [...prev, ...res]) : setSearchRes(res);
       setSearchTotal(d.total || res.length);
@@ -439,7 +441,7 @@ export default function HomeTabCopy() {
   // UPDATED: re-search on filter change without eslint-disable
   useEffect(() => {
     if (!query.trim() || view !== "search") return;
-    setSearchPage(1); 
+    setSearchPage(1);
     doSearch(query, 1);
   }, [typeFilter, genreFilter, sortFilter, qualFilter]);
 
@@ -474,7 +476,7 @@ export default function HomeTabCopy() {
             <Section
               title="🔥 Trending"
               action={
-                <div className="t-control-bar" style={{ margin: 0, padding: '2px' }}>
+                <div className="t-control-bar" style={{ margin: 0 }}>
                   <div className="t-type-seg">
                     {[["daily", "Daily"], ["weekly", "Weekly"], ["monthly", "Monthly"]].map(([v, l]) => (
                       <button
@@ -541,7 +543,7 @@ export default function HomeTabCopy() {
               {/* Dropdowns */}
               <div className="t-filter-selects">
                 <div className="t-select-wrap">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8l4 4-4 4"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M8 12h8M12 8l4 4-4 4" /></svg>
                   <select value={genreFilter} onChange={e => setGenreFilter(e.target.value)} className="t-filter-select">
                     <option value="">Genre</option>
                     {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
@@ -549,15 +551,15 @@ export default function HomeTabCopy() {
                 </div>
 
                 <div className="t-select-wrap">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 8h10M7 12h6M7 16h4"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="2" /><path d="M7 8h10M7 12h6M7 16h4" /></svg>
                   <select value={qualFilter} onChange={e => setQualFilter(e.target.value)} className="t-filter-select">
                     <option value="">Quality</option>
-                    {["480p", "720p", "1080p", "2160p"].map(q => <option key={q} value={q}>{q}</option>)}
+                    {["360p", "480p", "720p", "1080p", "2160p", "CAM", "TS"].map((q) => <option key={q} value={q}>{q}</option>)}
                   </select>
                 </div>
 
                 <div className="t-select-wrap">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M7 12h10M11 18h2" /></svg>
                   <select value={sortFilter} onChange={e => setSortFilter(e.target.value)} className="t-filter-select">
                     {[["relevance", "Relevance"], ["seeders", "Seeders"], ["year", "Year"], ["rating", "Rating"], ["added", "Added"]].map(([v, l]) => (
                       <option key={v} value={v}>{l}</option>

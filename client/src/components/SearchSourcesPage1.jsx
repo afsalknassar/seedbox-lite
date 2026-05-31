@@ -115,8 +115,8 @@ const TorrentRow = ({ t }) => {
         {t.audioCodec && <span style={{ color:"#6b7280", fontSize:10 }}>{t.audioCodec}</span>}
         {t.hdrType && <span style={{ color:"#f59e0b", fontSize:10, background:"rgba(245,158,11,0.1)",
           border:"1px solid rgba(245,158,11,0.25)", borderRadius:5, padding:"2px 6px" }}>{t.hdrType}</span>}
-        {t.verified && <span style={{ color:"#34d399", fontSize:10, background:"rgba(52,211,153,0.1)",
-          border:"1px solid rgba(52,211,153,0.25)", borderRadius:5, padding:"2px 6px" }}>✓ TrueSpec</span>}
+        {t.verified && <span style={{ color:"#f5c518", fontSize:10, background:"rgba(245,197,24,0.1)",
+          border:"1px solid rgba(245,197,24,0.25)", borderRadius:5, padding:"2px 6px" }}>✓ TrueSpec</span>}
         {size && <span style={{ color:"#6b7280", fontSize:10, marginLeft:"auto" }}>{size}</span>}
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>

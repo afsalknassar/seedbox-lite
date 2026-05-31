@@ -41,8 +41,12 @@ const Spinner = () => (
 );
 
 // quality → CSS class key
-const qKey = (q) =>
-    q === "2160p" ? "2160p" : q === "1080p" ? "1080p" : q === "720p" ? "720p" : q === "480p" ? "480p" : "other";
+const qKey = (q) => {
+    const valid = ["2160p", "1080p", "720p", "480p", "360p", "cam"];
+    return valid.includes(q?.toLowerCase()) ? q.toLowerCase() : "other";
+};
+
+const QUALITY_ORDER = ["2160p", "1080p", "720p", "480p", "360p", "cam", "Other"];
 
 // ─── COMPONENT ───────────────────────────────────────────────
 export default function DetailPage({ item: propItem, onBack }) {
@@ -99,9 +103,19 @@ export default function DetailPage({ item: propItem, onBack }) {
                 setDetails(data);
             } else {
                 const data = await apiFetch("/api/v1/search", { q: title, availability: "all" });
-                const exactMatch = data.results?.find((r) => r.id === currentItem.id || r.title === title) || data.results?.[0];
-                setDetails(exactMatch || currentItem);
-                setTorrents(exactMatch?.torrents || []);
+                const matches = (data.results || []).filter((r) => r.id === currentItem.id || r.title === title);
+                if (matches.length === 0 && data.results?.[0]) {
+                    matches.push(data.results[0]);
+                }
+                
+                const allTorrents = [];
+                matches.forEach(m => {
+                    if (m.torrents) allTorrents.push(...m.torrents);
+                });
+                
+                const exactMatch = matches[0] || currentItem;
+                setDetails(exactMatch);
+                setTorrents(allTorrents);
             }
         } catch (err) {
             setError("Failed to load details.");
@@ -119,7 +133,13 @@ export default function DetailPage({ item: propItem, onBack }) {
             : torrents;
 
         const groups = filtered.reduce((acc, t) => {
-            const q = t.quality || "Unknown";
+            let q = t.quality || "Other";
+            const key = qKey(q);
+            if (key === "other") {
+                q = "Other";
+            } else {
+                q = key;
+            }
             if (!acc[q]) acc[q] = [];
             acc[q].push(t);
             return acc;
@@ -137,7 +157,13 @@ export default function DetailPage({ item: propItem, onBack }) {
     }, [torrents, activeFilter, sortOrder, verifiedOnly]);
 
     useEffect(() => {
-        const keys = Object.keys(groupedTorrents);
+        const keys = Object.keys(groupedTorrents).sort((qA, qB) => {
+            const idxA = QUALITY_ORDER.indexOf(qA);
+            const idxB = QUALITY_ORDER.indexOf(qB);
+            const a = idxA === -1 ? 999 : idxA;
+            const b = idxB === -1 ? 999 : idxB;
+            return a - b;
+        });
         if (keys.length > 0 && !hasAutoOpened) {
             setOpenGroup(keys[0]);
             setHasAutoOpened(true);
@@ -401,7 +427,15 @@ export default function DetailPage({ item: propItem, onBack }) {
                                     <div className="dp-empty">No torrents match your filters.</div>
                                 ) : (
                                     <div className="dp-accordion">
-                                        {Object.entries(groupedTorrents).map(([quality, items]) => {
+                                        {Object.entries(groupedTorrents)
+                                            .sort(([qA], [qB]) => {
+                                                const idxA = QUALITY_ORDER.indexOf(qA);
+                                                const idxB = QUALITY_ORDER.indexOf(qB);
+                                                const a = idxA === -1 ? 999 : idxA;
+                                                const b = idxB === -1 ? 999 : idxB;
+                                                return a - b;
+                                            })
+                                            .map(([quality, items]) => {
                                             const isOpen = openGroup === quality;
                                             const totalSeeders = items.reduce((s, t) => s + (t.seeders || 0), 0);
                                             const maxSize = items.reduce((m, t) => t.sizeBytes > m ? t.sizeBytes : m, 0);

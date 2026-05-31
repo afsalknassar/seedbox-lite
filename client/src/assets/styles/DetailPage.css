@@ -906,7 +906,7 @@
 
     /* Hero: stack poster left (smaller) + meta right */
     .dp-hero {
-        grid-template-columns: 110px 1fr;
+        grid-template-columns: 140px 1fr;
         gap: 1rem;
     }
 
@@ -958,7 +958,7 @@
 /* ── ≤ 420px ── */
 @media (max-width: 420px) {
     .dp-hero {
-        grid-template-columns: 90px 1fr;
+        grid-template-columns: 115px 1fr;
         gap: 0.85rem;
     }
 

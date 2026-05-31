@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { config } from "../config/environment";
 import torrentHistoryService from "../services/torrentHistoryService";
 import "../assets/styles/DetailPage.css";
@@ -45,12 +45,20 @@ const qKey = (q) =>
     q === "2160p" ? "2160p" : q === "1080p" ? "1080p" : q === "720p" ? "720p" : q === "480p" ? "480p" : "other";
 
 // ─── COMPONENT ───────────────────────────────────────────────
-export default function DetailPage({ item, onBack }) {
+export default function DetailPage({ item: propItem, onBack }) {
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Support being used as a route (with state) or as a component
+    const item = propItem || location.state?.item;
 
     // Support nested navigation (e.g., clicking a movie within a collection)
     const [history, setHistory] = useState([]);
     const currentItem = history.length > 0 ? history[history.length - 1] : item;
+
+    if (!currentItem) {
+        return <div className="dp-error-state">No item provided.</div>;
+    }
 
     const [details, setDetails] = useState(null);
     const [torrents, setTorrents] = useState([]);
@@ -75,8 +83,10 @@ export default function DetailPage({ item, onBack }) {
     const handleBack = () => {
         if (history.length > 0) {
             setHistory(h => h.slice(0, -1));
-        } else {
+        } else if (onBack) {
             onBack();
+        } else {
+            navigate(-1);
         }
     };
 

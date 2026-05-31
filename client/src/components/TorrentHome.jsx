@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import "../assets/styles/TorrentHome.css";
 import DetailPage from "./DetailPage";
 
@@ -320,6 +321,7 @@ const Hero = ({ item, onSelect }) => {
 };
 
 export default function HomeTabCopy() {
+  const navigate = useNavigate();
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState("home");
   const [trendingPeriod, setTrendingPeriod] = useState("daily");
@@ -448,9 +450,9 @@ export default function HomeTabCopy() {
   useEffect(() => { loadCollections(); }, [loadCollections]);
   useEffect(() => { loadUserRequested(); }, [loadUserRequested]);
 
-  if (selected) {
-    return <DetailPage item={selected} onBack={() => setSelected(null)} />;
-  }
+  const handleSelect = (item) => {
+    navigate('/details', { state: { item } });
+  };
 
   return (
     <div className="t-app">
@@ -459,14 +461,14 @@ export default function HomeTabCopy() {
           query={query}
           onChange={setQuery}
           onClear={() => { setQuery(""); setView("home"); }}
-          onSelect={(s) => setSelected(s)}
+          onSelect={handleSelect}
           onSearch={() => { setView("search"); doSearch(query, 1); }}
         />
       </div>
 
       {view === "home" && (
         <>
-          <Hero item={data.trending[0]} onSelect={setSelected} />
+          <Hero item={data.trending[0]} onSelect={handleSelect} />
 
           <div className="t-home-wrap">
             <Section
@@ -488,14 +490,14 @@ export default function HomeTabCopy() {
                 </div>
               }
               items={data.trending}
-              onSelect={setSelected}
+              onSelect={handleSelect}
               loading={loading.trending}
             />
 
-            <Section title="⭐ Most Popular" items={data.popular} onSelect={setSelected} loading={loading.popular} />
-            <Section title="🕒 Recently Added" items={data.recent} onSelect={setSelected} loading={loading.recent} />
-            <Section title="🎬 User Requested" items={data.userrequested} onSelect={setSelected} loading={loading.userrequested} />
-            <Section title="📚 Collections" items={data.collections} onSelect={setSelected} loading={loading.collections} />
+            <Section title="⭐ Most Popular" items={data.popular} onSelect={handleSelect} loading={loading.popular} />
+            <Section title="🕒 Recently Added" items={data.recent} onSelect={handleSelect} loading={loading.recent} />
+            <Section title="🎬 User Requested" items={data.userrequested} onSelect={handleSelect} loading={loading.userrequested} />
+            <Section title="📚 Collections" items={data.collections} onSelect={handleSelect} loading={loading.collections} />
           </div>
         </>
       )}
@@ -571,7 +573,7 @@ export default function HomeTabCopy() {
             {searching && searchRes.length === 0 ? <Spinner />
               : searchRes.length > 0
                 ? <>
-                  <MovieGrid items={searchRes} layout="grid" onSelect={setSelected} loading={false} isExpanded={true} />
+                  <MovieGrid items={searchRes} layout="grid" onSelect={handleSelect} loading={false} isExpanded={true} />
                   {hasMore && (
                     <div className="t-loadmore">
                       <button

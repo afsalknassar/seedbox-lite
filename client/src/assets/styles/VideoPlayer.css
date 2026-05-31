@@ -318,178 +318,85 @@
 
 
 /* =========================================
-   CENTERED BUFFERING ICON
+   MINIMAL BUFFERING INDICATOR & CENTER LOADER
    ========================================= */
-.buffering-center-icon {
+.simple-center-loader {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 50;
-  width: 56px;
-  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: rgba(255, 255, 255, 0.8);
   pointer-events: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  animation: iconPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
-
-@keyframes iconPop {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
-  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-
-/* Color variants */
-.buffering-center-icon.ring-download {
-  color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.3);
-  background: rgba(96, 165, 250, 0.1);
-}
-
-.buffering-center-icon.ring-network {
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.3);
-  background: rgba(248, 113, 113, 0.1);
-}
-
-.buffering-center-icon.ring-server {
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.3);
-  background: rgba(251, 191, 36, 0.1);
-}
-
-.buffering-center-icon.ring-warning {
-  color: rgba(255, 255, 255, 0.85);
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.spinning { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* =========================================
-   BOTTOM BUFFERING TOAST
-   ========================================= */
-/* =========================================
-   BOTTOM BUFFERING TOAST
-   ========================================= */
-.buffering-toast {
+.minimal-buffering-indicator {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: rgba(18, 18, 20, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  padding: 8px 16px;
-  border-radius: 100px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  gap: 8px;
+  background: rgba(18, 18, 20, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   pointer-events: none;
-  animation: toastSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  max-width: 90%;
+  animation: fadeSlideIn 0.3s ease-out forwards;
 }
 
-@keyframes toastSlideIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(16px); }
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-.buffering-toast.toast-above-controls {
-  bottom: 110px;
+.minimal-buffering-indicator.above-controls {
+  bottom: 80px;
 }
 
-.buffering-toast.toast-bottom {
+.minimal-buffering-indicator.bottom {
   bottom: 32px;
 }
 
-/* Toast icon */
-.buffering-toast-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 6px;
-  border-radius: 50%;
+.minimal-buffering-indicator svg {
+  color: #fff;
+  opacity: 0.9;
 }
 
-.toast-icon-download { color: #60a5fa; background: rgba(96, 165, 250, 0.15); }
-.toast-icon-network  { color: #f87171; background: rgba(248, 113, 113, 0.15); }
-.toast-icon-server   { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
-.toast-icon-warning  { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
-
-/* Content wrapper */
-.buffering-toast-content {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  overflow: hidden;
-}
-
-/* Toast label */
-.buffering-toast-label {
+.minimal-buffering-text {
   color: #f4f4f5;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 500;
   letter-spacing: 0.3px;
   white-space: nowrap;
 }
 
-/* Toast detail */
-.buffering-toast-detail {
-  color: #a1a1aa;
-  font-size: 0.75rem;
-  font-weight: 400;
-  padding-left: 10px;
-  border-left: 1.5px solid rgba(255, 255, 255, 0.12);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Status Colors */
+.text-download { color: #60a5fa !important; }
+.text-network { color: #f87171 !important; }
+.text-server { color: #fbbf24 !important; }
+.text-warning { color: rgba(255, 255, 255, 0.85) !important; }
 
-/* Mobile */
+.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Mobile optimization */
 @media (max-width: 768px) {
-  .buffering-center-icon svg {
-    width: 18px;
-    height: 18px;
+  .minimal-buffering-indicator.above-controls {
+    bottom: 70px;
   }
-  .buffering-center-icon {
-    width: 34px;
-    height: 34px;
+  .minimal-buffering-indicator {
+    padding: 4px 10px;
+    gap: 6px;
   }
-  .buffering-toast {
-    padding: 8px 14px;
-    gap: 10px;
-    border-radius: 24px;
-  }
-  .buffering-toast.toast-above-controls {
-    bottom: 100px;
-  }
-  .buffering-toast-icon {
-    padding: 5px;
-  }
-  .buffering-toast-icon svg {
-    width: 12px;
-    height: 12px;
-  }
-  .buffering-toast-label {
+  .minimal-buffering-text {
     font-size: 0.75rem;
-  }
-  .buffering-toast-detail {
-    font-size: 0.65rem;
-    padding-left: 8px;
   }
 }
 
@@ -812,11 +719,12 @@
   cursor: pointer;
   transition: all 0.2s;
   
-  /* THIS FIXES THE TEXT PROBLEM: */
-  display: block; 
-  white-space: nowrap; /* Forces text to stay on one line */
-  overflow: hidden;    /* Hides anything that doesn't fit */
-  text-overflow: ellipsis; /* Adds the "..." at the end */
+  /* Text Wrapping Setup */
+  display: flex; 
+  align-items: flex-start;
+  white-space: normal; /* Allows text to wrap to the next line */
+  word-break: break-word; /* Prevents long unbreakable strings from overflowing */
+  line-height: 1.4;
 }
 
 
@@ -902,12 +810,12 @@
   flex-shrink: 0;
 }
 
-/* Ensure the text truncation works inside the online results */
+/* Ensure text wraps inside the online results */
 .online-subtitle-text {
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: flex-start;
+  white-space: normal;
+  word-break: break-word;
   flex: 1; /* Take up remaining space */
 }
 

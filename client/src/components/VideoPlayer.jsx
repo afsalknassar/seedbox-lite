@@ -150,7 +150,6 @@ const VideoPlayer = ({
 
     // --- Priority 3: Torrent still downloading to server ---
     if (torrentHash && !torrentDone) {
-      // Check if the buffering is because the torrent hasn't downloaded this section yet
       const playheadFraction = videoDuration > 0 ? video.currentTime / videoDuration : 0;
       const isPlayheadBeyondDownloaded = playheadFraction > torrentProgress + 0.02; // 2% margin
 
@@ -158,19 +157,17 @@ const VideoPlayer = ({
         return {
           type: 'torrent_ahead',
           icon: 'download',
-          label: 'Waiting for Download',
-          detail: `Downloaded ${(torrentProgress * 100).toFixed(0)}% · ${(torrentDlSpeed / 1024 / 1024).toFixed(1)} MB/s${peers > 0 ? ` · ${peers} peers` : ''}`,
+          label: 'Downloading',
+          detail: 'Fetching video data...',
           color: 'download'
         };
       }
 
-      // Torrent is still downloading but playhead is within downloaded range
-      // Could be server transcoding/serving bottleneck or network issue
       return {
         type: 'torrent_downloading',
         icon: 'download',
-        label: 'Downloading to Server',
-        detail: `${(torrentDlSpeed / 1024 / 1024).toFixed(1)} MB/s · ${(torrentProgress * 100).toFixed(0)}% complete`,
+        label: 'Buffering',
+        detail: 'Downloading...',
         color: 'download'
       };
     }
@@ -197,53 +194,23 @@ const VideoPlayer = ({
     const isBufferStarved = throughputRatio !== null && throughputRatio < 0.5;
 
     if (isBrowserReportingSlow) {
-      // Browser API says the network is genuinely slow
-      const speedInfo = connDownlink != null
-        ? `~${connDownlink.toFixed(1)} Mbps`
-        : connEffectiveType.toUpperCase();
       return {
         type: 'slow_network',
         icon: 'wifi_off',
         label: 'Slow Connection',
-        detail: avgBitrateMbps > 0
-          ? `Network: ${speedInfo} · Video needs: ~${avgBitrateMbps.toFixed(1)} Mbps`
-          : `Network: ${speedInfo}`,
+        detail: 'Buffering...',
         color: 'network'
       };
     }
 
     // --- Priority 5: Data not arriving fast enough ---
     // Buffer isn't growing but the browser API doesn't report slow network.
-    // This could be server-side (disk I/O, CPU) or a network issue the API missed.
     if (isBufferStarved || (timeSinceBufferingStart > 5000 && bufferAhead < 1)) {
-      // Try to figure out if it's network or server
-      // If connDownlink is available and healthy, it's likely the server
-      const networkLooksOk = connDownlink != null && avgBitrateMbps > 0 && connDownlink >= avgBitrateMbps;
-
-      if (networkLooksOk || torrentDone || !torrentHash) {
-        return {
-          type: 'server',
-          icon: 'server',
-          label: 'Server Responding Slowly',
-          detail: avgBitrateMbps > 0
-            ? `Video needs ~${avgBitrateMbps.toFixed(1)} Mbps · Data arriving slowly`
-            : 'Waiting for server to send data',
-          color: 'server'
-        };
-      }
-
-      // Network API unavailable or inconclusive — show neutral message
-      // with actual measured buffer rate instead of unreliable API numbers
-      const measuredInfo = throughputRatio !== null
-        ? `Buffer filling at ${(throughputRatio * 100).toFixed(0)}% of needed speed`
-        : 'Data arriving slowly';
       return {
         type: 'slow_network',
         icon: 'wifi_off',
-        label: 'Slow Data Transfer',
-        detail: avgBitrateMbps > 0
-          ? `${measuredInfo} · Video needs ~${avgBitrateMbps.toFixed(1)} Mbps`
-          : measuredInfo,
+        label: 'Slow Connection',
+        detail: 'Data arriving slowly...',
         color: 'network'
       };
     }
@@ -815,28 +782,19 @@ const VideoPlayer = ({
       {swipeIndicator && <div className="swipe-indicator">{swipeIndicator}</div>}
 
       {isLoading && (
-        <div className={`buffering-center-icon ${bufferingReason ? `ring-${bufferingReason.color}` : 'ring-warning'}`}>
-          {bufferingReason?.icon === 'download' && <Download size={28} />}
-          {bufferingReason?.icon === 'wifi_off' && <WifiOff size={28} />}
-          {bufferingReason?.icon === 'server' && <Server size={28} />}
-          {(!bufferingReason || bufferingReason.icon === 'loader') && <Loader2 size={28} className="spinning" />}
+        <div className={`simple-center-loader text-${bufferingReason?.color || 'warning'}`}>
+          <Loader2 size={48} className="spinning" />
         </div>
       )}
 
-      {isLoading && bufferingReason && (
-        <div className={`buffering-toast ${showControls ? 'toast-above-controls' : 'toast-bottom'}`}>
-          <div className={`buffering-toast-icon toast-icon-${bufferingReason.color}`}>
-            {bufferingReason.icon === 'download' && <Download size={14} />}
-            {bufferingReason.icon === 'wifi_off' && <WifiOff size={14} />}
-            {bufferingReason.icon === 'server' && <Server size={14} />}
-            {bufferingReason.icon === 'loader' && <Loader2 size={14} className="spinning" />}
-          </div>
-          <div className="buffering-toast-content">
-            <span className="buffering-toast-label">{bufferingReason.label}</span>
-            {bufferingReason.detail && (
-              <span className="buffering-toast-detail hide-on-mobile">{bufferingReason.detail}</span>
-            )}
-          </div>
+      {isLoading && (
+        <div className={`minimal-buffering-indicator ${showControls ? 'above-controls' : 'bottom'}`}>
+          {(!bufferingReason || bufferingReason.icon === 'loader') && <Loader2 size={16} className={`spinning text-${bufferingReason?.color || 'warning'}`} />}
+          {bufferingReason?.icon === 'download' && <Download size={16} className={`text-${bufferingReason.color}`} />}
+          {bufferingReason?.icon === 'wifi_off' && <WifiOff size={16} className={`text-${bufferingReason.color}`} />}
+          {bufferingReason && (
+            <span className="minimal-buffering-text">{bufferingReason.label}</span>
+          )}
         </div>
       )}
 

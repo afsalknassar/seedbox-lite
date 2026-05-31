@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { config } from "../config/environment";
 import torrentHistoryService from "../services/torrentHistoryService";
 import "../assets/styles/DetailPage.css";
+import "../assets/styles/HomePage.css"; // For modern-loader-overlay
 import { ArrowLeft } from 'lucide-react';
 
 // ─── CONFIG ──────────────────────────────────────────────────
@@ -46,7 +47,7 @@ const qKey = (q) =>
 // ─── COMPONENT ───────────────────────────────────────────────
 export default function DetailPage({ item, onBack }) {
     const navigate = useNavigate();
-    
+
     // Support nested navigation (e.g., clicking a movie within a collection)
     const [history, setHistory] = useState([]);
     const currentItem = history.length > 0 ? history[history.length - 1] : item;
@@ -57,6 +58,7 @@ export default function DetailPage({ item, onBack }) {
     const [error, setError] = useState(null);
     const [openGroup, setOpenGroup] = useState(null);
     const [streamLoading, setStreamLoading] = useState(null);
+    const [streamLoadingText, setStreamLoadingText] = useState('Syncing...');
     const [hasAutoOpened, setHasAutoOpened] = useState(false);
     const [activeFilter, setActiveFilter] = useState("seeders");
     const [sortOrder, setSortOrder] = useState("desc");
@@ -95,8 +97,8 @@ export default function DetailPage({ item, onBack }) {
             setError("Failed to load details.");
         }
         setLoading(false);
-    // UPDATED: Changed item to item?.id to prevent infinite re-renders
-    }, [currentItem?.id, isCollection, title]); 
+        // UPDATED: Changed item to item?.id to prevent infinite re-renders
+    }, [currentItem?.id, isCollection, title]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -131,6 +133,29 @@ export default function DetailPage({ item, onBack }) {
             setHasAutoOpened(true);
         }
     }, [groupedTorrents, hasAutoOpened]);
+
+    useEffect(() => {
+        let interval;
+        if (streamLoading) {
+            const messages = [
+                "Connecting to swarm...",
+                "Finding peers...",
+                "Downloading metadata...",
+                "Resolving files...",
+                "Almost ready..."
+            ];
+            let step = 0;
+            setStreamLoadingText(messages[0]);
+
+            interval = setInterval(() => {
+                step++;
+                if (step < messages.length) {
+                    setStreamLoadingText(messages[step]);
+                }
+            }, 3500);
+        }
+        return () => clearInterval(interval);
+    }, [streamLoading]);
 
     const handleStream = async (torrent) => {
         const torrentId = torrent.magnetUrl || torrent.infoHash;
@@ -172,6 +197,19 @@ export default function DetailPage({ item, onBack }) {
 
     return (
         <main className="dp-wrapper">
+            {streamLoading && (
+                <div className="modern-loader-overlay">
+                    <div className="loader-content">
+                        <div className="glowing-rings">
+                            <div className="ring ring-1"></div>
+                            <div className="ring ring-2"></div>
+                            <div className="ring ring-3"></div>
+                        </div>
+                        <p className="shimmer-text">{streamLoadingText}</p>
+                    </div>
+                </div>
+            )}
+            
             {/* Backdrop */}
             {backdropUrl && (
                 <div className="dp-backdrop" style={{ backgroundImage: `url(${backdropUrl})` }}>
@@ -257,9 +295,9 @@ export default function DetailPage({ item, onBack }) {
                                 </div>
                                 <div className="dp-movies-grid">
                                     {details.movies.map((movie) => (
-                                        <div 
-                                            key={movie.id} 
-                                            className="dp-movie-card" 
+                                        <div
+                                            key={movie.id}
+                                            className="dp-movie-card"
                                             onClick={() => setHistory(prev => [...prev, movie])}
                                         >
                                             <div className="dp-movie-poster">
@@ -472,6 +510,10 @@ export default function DetailPage({ item, onBack }) {
                                                                         {/* Expanded detail panel */}
                                                                         {isExpanded && (
                                                                             <div className="dp-detail-panel" onClick={e => e.stopPropagation()}>
+                                                                                <div className="dp-detail-col" style={{ gridColumn: "1 / -1" }}>
+                                                                                    <h4>Raw Title</h4>
+                                                                                    <p style={{ wordBreak: "break-all" }}>{t.rawTitle || t.name || t.title || "—"}</p>
+                                                                                </div>
                                                                                 <div className="dp-detail-col">
                                                                                     <h4>Audio</h4>
                                                                                     {t.audioTracks?.length > 0

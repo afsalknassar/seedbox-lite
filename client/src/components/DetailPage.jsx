@@ -4,13 +4,12 @@ import { config } from "../config/environment";
 import torrentHistoryService from "../services/torrentHistoryService";
 import "../assets/styles/DetailPage.css";
 import "../assets/styles/HomePage.css"; // For modern-loader-overlay
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Shield, ShieldOff, Play, Copy, ChevronDown, ChevronUp, Filter, Users, HardDrive } from 'lucide-react';
 
 // ─── CONFIG ──────────────────────────────────────────────────
 const PROXY = "https://rich-clownfish-18.epaperhubdaily.deno.net";
 const API_KEY = "tc_cc07d834fe3a9fb54d4343e379eec4d8c74f898c9d6048c1";
 
-// UPDATED: Added options parameter to support AbortController
 const apiFetch = async (path, params = {}, options = {}) => {
     const url = new URL(`${PROXY}${path}`);
     Object.entries(params).forEach(([k, v]) => {
@@ -35,12 +34,11 @@ const formatBytes = (bytes) => {
 
 const Spinner = () => (
     <div className="modern-loader-container">
-        <div className="modern-spinner"></div>
+        <div className="modern-spinner" />
         <p>Loading Details…</p>
     </div>
 );
 
-// quality → CSS class key
 const qKey = (q) => {
     const valid = ["2160p", "1080p", "720p", "480p", "360p", "cam"];
     return valid.includes(q?.toLowerCase()) ? q.toLowerCase() : "other";
@@ -48,15 +46,22 @@ const qKey = (q) => {
 
 const QUALITY_ORDER = ["2160p", "1080p", "720p", "480p", "360p", "cam", "Other"];
 
+const QUALITY_LABELS = {
+    "2160p": "4K UHD",
+    "1080p": "Full HD",
+    "720p": "HD 720p",
+    "480p": "SD 480p",
+    "360p": "360p",
+    "cam": "CAM",
+    "Other": "Other",
+};
+
 // ─── COMPONENT ───────────────────────────────────────────────
 export default function DetailPage({ item: propItem, onBack }) {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Support being used as a route (with state) or as a component
     const item = propItem || location.state?.item;
-
-    // Support nested navigation (e.g., clicking a movie within a collection)
     const [history, setHistory] = useState([]);
     const currentItem = history.length > 0 ? history[history.length - 1] : item;
 
@@ -68,14 +73,15 @@ export default function DetailPage({ item: propItem, onBack }) {
     const [torrents, setTorrents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [openGroup, setOpenGroup] = useState(null);
+    const [activeQuality, setActiveQuality] = useState(null);
     const [streamLoading, setStreamLoading] = useState(null);
-    const [streamLoadingText, setStreamLoadingText] = useState('Syncing...');
-    const [hasAutoOpened, setHasAutoOpened] = useState(false);
+    const [streamLoadingText, setStreamLoadingText] = useState("Syncing...");
+    const [hasAutoSelected, setHasAutoSelected] = useState(false);
     const [activeFilter, setActiveFilter] = useState("seeders");
     const [sortOrder, setSortOrder] = useState("desc");
     const [verifiedOnly, setVerifiedOnly] = useState(false);
-    const [expandedTorrentId, setExpandedTorrentId] = useState(null);
+    const [expandedId, setExpandedId] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
 
     const isCollection = currentItem.movieCount !== undefined || currentItem.partCount !== undefined;
     const title = currentItem.title || currentItem.name || "Details";
@@ -96,7 +102,7 @@ export default function DetailPage({ item: propItem, onBack }) {
 
     const loadData = useCallback(async () => {
         setLoading(true);
-        setHasAutoOpened(false);
+        setHasAutoSelected(false);
         try {
             if (isCollection) {
                 const data = await apiFetch(`/api/v1/collections/${currentItem.id}`);
@@ -104,15 +110,9 @@ export default function DetailPage({ item: propItem, onBack }) {
             } else {
                 const data = await apiFetch("/api/v1/search", { q: title, availability: "all" });
                 const matches = (data.results || []).filter((r) => r.id === currentItem.id || r.title === title);
-                if (matches.length === 0 && data.results?.[0]) {
-                    matches.push(data.results[0]);
-                }
-                
+                if (matches.length === 0 && data.results?.[0]) matches.push(data.results[0]);
                 const allTorrents = [];
-                matches.forEach(m => {
-                    if (m.torrents) allTorrents.push(...m.torrents);
-                });
-                
+                matches.forEach(m => { if (m.torrents) allTorrents.push(...m.torrents); });
                 const exactMatch = matches[0] || currentItem;
                 setDetails(exactMatch);
                 setTorrents(allTorrents);
@@ -121,7 +121,6 @@ export default function DetailPage({ item: propItem, onBack }) {
             setError("Failed to load details.");
         }
         setLoading(false);
-        // UPDATED: Changed item to item?.id to prevent infinite re-renders
     }, [currentItem?.id, isCollection, title]);
 
     useEffect(() => { loadData(); }, [loadData]);
@@ -131,20 +130,14 @@ export default function DetailPage({ item: propItem, onBack }) {
         let filtered = verifiedOnly
             ? torrents.filter(t => t.threatLevel === "clean" || t.seeders > 50)
             : torrents;
-
         const groups = filtered.reduce((acc, t) => {
             let q = t.quality || "Other";
             const key = qKey(q);
-            if (key === "other") {
-                q = "Other";
-            } else {
-                q = key;
-            }
+            q = key === "other" ? "Other" : key;
             if (!acc[q]) acc[q] = [];
             acc[q].push(t);
             return acc;
         }, {});
-
         Object.keys(groups).forEach(k => {
             groups[k].sort((a, b) => {
                 const diff = activeFilter === "size"
@@ -156,38 +149,30 @@ export default function DetailPage({ item: propItem, onBack }) {
         return groups;
     }, [torrents, activeFilter, sortOrder, verifiedOnly]);
 
+    const sortedQualities = useMemo(() =>
+        Object.keys(groupedTorrents).sort((a, b) => {
+            const ia = QUALITY_ORDER.indexOf(a), ib = QUALITY_ORDER.indexOf(b);
+            return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        }),
+        [groupedTorrents]
+    );
+
     useEffect(() => {
-        const keys = Object.keys(groupedTorrents).sort((qA, qB) => {
-            const idxA = QUALITY_ORDER.indexOf(qA);
-            const idxB = QUALITY_ORDER.indexOf(qB);
-            const a = idxA === -1 ? 999 : idxA;
-            const b = idxB === -1 ? 999 : idxB;
-            return a - b;
-        });
-        if (keys.length > 0 && !hasAutoOpened) {
-            setOpenGroup(keys[0]);
-            setHasAutoOpened(true);
+        if (sortedQualities.length > 0 && !hasAutoSelected) {
+            setActiveQuality(sortedQualities[0]);
+            setHasAutoSelected(true);
         }
-    }, [groupedTorrents, hasAutoOpened]);
+    }, [sortedQualities, hasAutoSelected]);
 
     useEffect(() => {
         let interval;
         if (streamLoading) {
-            const messages = [
-                "Connecting to swarm...",
-                "Finding peers...",
-                "Downloading metadata...",
-                "Resolving files...",
-                "Almost ready..."
-            ];
+            const messages = ["Connecting to swarm...", "Finding peers...", "Downloading metadata...", "Resolving files...", "Almost ready..."];
             let step = 0;
             setStreamLoadingText(messages[0]);
-
             interval = setInterval(() => {
                 step++;
-                if (step < messages.length) {
-                    setStreamLoadingText(messages[step]);
-                }
+                if (step < messages.length) setStreamLoadingText(messages[step]);
             }, 3500);
         }
         return () => clearInterval(interval);
@@ -195,12 +180,32 @@ export default function DetailPage({ item: propItem, onBack }) {
 
     const handleStream = async (torrent) => {
         const torrentId = torrent.magnetUrl || torrent.infoHash;
+        
+        const tmdbData = {
+            Title: title,
+            Year: currentItem?.year || currentItem?.first_air_date?.substring(0, 4) || currentItem?.release_date?.substring(0, 4) || null,
+            imdbRating: currentItem?.rating || currentItem?.vote_average || 0,
+            imdbVotes: currentItem?.vote_count || 0,
+            Plot: currentItem?.plot || currentItem?.overview || currentItem?.summary || currentItem?.synopsis || "No description available.",
+            Director: "N/A",
+            Actors: "N/A",
+            Poster: poster ? (poster.startsWith("http") ? poster : `${PROXY}${poster}`) : null,
+            Backdrop: backdrop ? (backdrop.startsWith("http") ? backdrop : `${PROXY}${backdrop}`) : null,
+            Genre: currentItem?.genres ? currentItem.genres.join(", ") : "Unknown",
+            Runtime: currentItem?.runtime ? `${currentItem.runtime} min` : "0 min",
+            Rated: "NR",
+            imdbID: currentItem?.imdb_code || null,
+            tmdbID: currentItem?.id || null,
+            Type: isCollection ? "series" : "movie",
+            source: "frontend-provided"
+        };
+
         setStreamLoading(torrentId);
         try {
             const response = await fetch(config.api.torrents, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ torrentId }),
+                body: JSON.stringify({ torrentId, tmdbData }),
             });
             const data = await response.json();
             if (response.ok) {
@@ -231,22 +236,25 @@ export default function DetailPage({ item: propItem, onBack }) {
         ? (backdrop.startsWith("http") ? backdrop : `${PROXY}${backdrop}`)
         : null;
 
+    const activeTorrents = activeQuality ? (groupedTorrents[activeQuality] || []) : [];
+
     return (
         <main className="dp-wrapper">
+            {/* ── Stream loading overlay ── */}
             {streamLoading && (
                 <div className="modern-loader-overlay">
                     <div className="loader-content">
                         <div className="glowing-rings">
-                            <div className="ring ring-1"></div>
-                            <div className="ring ring-2"></div>
-                            <div className="ring ring-3"></div>
+                            <div className="ring ring-1" />
+                            <div className="ring ring-2" />
+                            <div className="ring ring-3" />
                         </div>
                         <p className="shimmer-text">{streamLoadingText}</p>
                     </div>
                 </div>
             )}
-            
-            {/* Backdrop */}
+
+            {/* ── Backdrop ── */}
             {backdropUrl && (
                 <div className="dp-backdrop" style={{ backgroundImage: `url(${backdropUrl})` }}>
                     <div className="dp-backdrop-fade" />
@@ -254,7 +262,7 @@ export default function DetailPage({ item: propItem, onBack }) {
             )}
 
             <div className="dp-page">
-                {/* ── Back button row ── */}
+                {/* ── Back button ── */}
                 <div className="dp-top-bar">
                     <button className="dp-back-btn" onClick={handleBack}>
                         <ArrowLeft size={15} />
@@ -266,7 +274,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                     <div className="dp-error-state">{error}</div>
                 ) : (
                     <>
-                        {/* ══ HERO ══════════════════════════════════════════ */}
+                        {/* ══ HERO (original style) ══════════════════════════════ */}
                         <header className="dp-hero">
                             {/* Poster */}
                             <div className="dp-poster-wrap">
@@ -304,6 +312,25 @@ export default function DetailPage({ item: propItem, onBack }) {
                                     </div>
                                 )}
 
+                                {/* Ratings */}
+                                {(rImdb || rTmdb) && (
+                                    <div className="dp-ratings-row">
+                                        {rImdb && (
+                                            <span className="dp-rating imdb">
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="#f5c518"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg>
+                                                {rImdb}
+                                                <span className="dp-rating-label">IMDb</span>
+                                            </span>
+                                        )}
+                                        {rTmdb && (
+                                            <span className="dp-rating tmdb">
+                                                ★ {rTmdb}
+                                                <span className="dp-rating-label">TMDB</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Genre tags */}
                                 {details?.genres?.length > 0 && (
                                     <div className="dp-genres">
@@ -320,7 +347,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                             </div>
                         </header>
 
-                        {/* ══ COLLECTION MOVIES ══════════════════════════════════════ */}
+                        {/* ══ COLLECTION MOVIES ════════════════════════════════ */}
                         {isCollection && details?.movies && (
                             <section className="dp-collection-movies">
                                 <div className="dp-torrents-hdr">
@@ -372,217 +399,186 @@ export default function DetailPage({ item: propItem, onBack }) {
                             </section>
                         )}
 
-                        {/* ══ TORRENTS ══════════════════════════════════════ */}
+                        {/* ══ TORRENTS (new card style) ═════════════════════════ */}
                         {!isCollection && (
-                            <section className="dp-torrents">
-                                {/* Section header */}
-                                <div className="dp-torrents-hdr">
-                                    <div className="dp-torrents-title">
-                                        <span>Torrents</span>
-                                        <span className="dp-count-pill">{torrents.length}</span>
-                                    </div>
+                            <section className="dp2-section">
 
-                                    <div className="dp-filter-bar">
-                                        {/* Sort pill group */}
-                                        <div className="dp-sort-group">
-                                            {["quality", "seeders", "size"].map(f => (
-                                                <button
-                                                    key={f}
-                                                    className={`dp-sort-btn ${activeFilter === f ? "active" : ""}`}
-                                                    onClick={() => {
-                                                        if (activeFilter === f) {
-                                                            setSortOrder(sortOrder === "desc" ? "asc" : "desc");
-                                                        } else {
-                                                            setActiveFilter(f);
-                                                            setSortOrder("desc");
-                                                        }
-                                                    }}
-                                                >
-                                                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                                                    {activeFilter === f && (
-                                                        <span style={{ marginLeft: "4px" }}>
-                                                            {sortOrder === "desc" ? "↓" : "↑"}
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            ))}
+                                {/* ── Quality tab bar ── */}
+                                {sortedQualities.length > 0 && (
+                                    <div className="dp2-tab-bar">
+                                        {/* Scrollable tabs */}
+                                        <div className="dp2-tabs">
+                                            {sortedQualities.map(q => {
+                                                const group = groupedTorrents[q];
+                                                const totalSeed = group.reduce((s, t) => s + (t.seeders || 0), 0);
+                                                return (
+                                                    <button
+                                                        key={q}
+                                                        className={`dp2-tab ${activeQuality === q ? "active" : ""} q-${qKey(q)}`}
+                                                        onClick={() => { setActiveQuality(q); setExpandedId(null); }}
+                                                    >
+                                                        <span className="dp2-tab-label">{QUALITY_LABELS[q] || q}</span>
+                                                        <span className="dp2-tab-sub">{group.length} · ↑{totalSeed.toLocaleString()}</span>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
 
-                                        {/* Verified toggle */}
-                                        <button
-                                            className={`dp-verified-btn ${verifiedOnly ? "active" : ""}`}
-                                            onClick={() => setVerifiedOnly(!verifiedOnly)}
-                                        >
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                                                <path d="M9 12l2 2 4-4" />
-                                            </svg>
-                                            Verified
-                                        </button>
+                                        {/* Controls */}
+                                        <div className="dp2-controls">
+                                            <button
+                                                className={`dp2-ctrl-btn ${verifiedOnly ? "active" : ""}`}
+                                                onClick={() => setVerifiedOnly(!verifiedOnly)}
+                                                title="Verified only"
+                                            >
+                                                {verifiedOnly ? <Shield size={13} /> : <ShieldOff size={13} />}
+                                                <span className="dp2-ctrl-label">Verified</span>
+                                            </button>
+                                            <button
+                                                className={`dp2-ctrl-btn ${showFilters ? "active" : ""}`}
+                                                onClick={() => setShowFilters(!showFilters)}
+                                                title="Sort options"
+                                            >
+                                                <Filter size={13} />
+                                                <span className="dp2-ctrl-label">Sort</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
-                                {/* Accordion */}
+                                {/* ── Filter drawer ── */}
+                                {showFilters && (
+                                    <div className="dp2-filter-drawer">
+                                        {["seeders", "size"].map(f => (
+                                            <button
+                                                key={f}
+                                                className={`dp2-filter-btn ${activeFilter === f ? "active" : ""}`}
+                                                onClick={() => {
+                                                    if (activeFilter === f) {
+                                                        setSortOrder(s => s === "desc" ? "asc" : "desc");
+                                                    } else {
+                                                        setActiveFilter(f);
+                                                        setSortOrder("desc");
+                                                    }
+                                                }}
+                                                title={`Sort by ${f}`}
+                                            >
+                                                {f === "seeders" ? <Users size={12} /> : <HardDrive size={12} />}
+                                                <span>{f.charAt(0).toUpperCase() + f.slice(1)}</span>
+                                                {activeFilter === f && (
+                                                    <span style={{ marginLeft: "2px", display: "flex" }}>
+                                                        {sortOrder === "desc" ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* ── Torrent cards ── */}
                                 {Object.keys(groupedTorrents).length === 0 ? (
-                                    <div className="dp-empty">No torrents match your filters.</div>
+                                    <div className="dp2-empty">No torrents match your filters.</div>
+                                ) : activeTorrents.length === 0 ? (
+                                    <div className="dp2-empty">No results in this quality tier.</div>
                                 ) : (
-                                    <div className="dp-accordion">
-                                        {Object.entries(groupedTorrents)
-                                            .sort(([qA], [qB]) => {
-                                                const idxA = QUALITY_ORDER.indexOf(qA);
-                                                const idxB = QUALITY_ORDER.indexOf(qB);
-                                                const a = idxA === -1 ? 999 : idxA;
-                                                const b = idxB === -1 ? 999 : idxB;
-                                                return a - b;
-                                            })
-                                            .map(([quality, items]) => {
-                                            const isOpen = openGroup === quality;
-                                            const totalSeeders = items.reduce((s, t) => s + (t.seeders || 0), 0);
-                                            const maxSize = items.reduce((m, t) => t.sizeBytes > m ? t.sizeBytes : m, 0);
+                                    <div className="dp2-card-grid">
+                                        {activeTorrents.map((t, idx) => {
+                                            const tId = t.magnetUrl || t.infoHash;
+                                            const isStreaming = streamLoading === tId;
+                                            const isExpanded = expandedId === tId;
+                                            const isVerified = t.threatLevel === "clean" || t.seeders > 50;
+                                            const codec = (t.codec || t.videoInfo?.codec || "").toUpperCase();
+                                            const audio = (t.audioCodec || t.audioTracks?.[0]?.codec || "").toUpperCase();
 
                                             return (
-                                                <div key={quality} className={`dp-group ${isOpen ? "open" : ""}`}>
-                                                    {/* Group header */}
-                                                    <button
-                                                        className="dp-group-hdr"
-                                                        onClick={() => setOpenGroup(isOpen ? null : quality)}
-                                                    >
-                                                        <div className="dp-group-left">
-                                                            <span className={`dp-q-badge q-${qKey(quality)}`}>
-                                                                {quality === "2160p" ? "4K / UHD" : quality}
-                                                            </span>
-                                                            <span className="dp-group-count">
-                                                                {items.length} {items.length === 1 ? "torrent" : "torrents"}
-                                                            </span>
+                                                <div
+                                                    key={tId || idx}
+                                                    className={`dp2-card ${isExpanded ? "expanded" : ""}`}
+                                                >
+                                                    {/* Card top */}
+                                                    <div className="dp2-card-top" onClick={() => setExpandedId(isExpanded ? null : tId)}>
+                                                        <div className={`dp2-verified-dot ${isVerified ? "ok" : ""}`} title={isVerified ? "Verified" : "Unverified"} />
+                                                        <div className="dp2-card-info">
+                                                            <div className="dp2-card-badges">
+                                                                {codec && <span className="dp2-badge dp2-badge--codec">{codec}</span>}
+                                                                {audio && <span className="dp2-badge dp2-badge--audio">{audio}</span>}
+                                                            </div>
+                                                            <p className="dp2-card-source">{t.source || t.releaseGroup || t.rawTitle?.slice(0, 40) || "Unknown release"}</p>
                                                         </div>
-                                                        <div className="dp-group-right">
-                                                            <span className="dp-seed-stat">
-                                                                ↑ {totalSeeders.toLocaleString()} seeders
-                                                            </span>
-                                                            <span className="dp-size-stat">{formatBytes(maxSize)}</span>
-                                                            <svg
-                                                                className={`dp-chevron ${isOpen ? "open" : ""}`}
-                                                                width="16" height="16" viewBox="0 0 24 24"
-                                                                fill="none" stroke="currentColor" strokeWidth="2"
-                                                            >
-                                                                <path d="M6 9l6 6 6-6" />
-                                                            </svg>
+                                                        <div className="dp2-card-stats">
+                                                            <div className="dp2-stat">
+                                                                <span className="dp2-stat-val dp2-stat-val--size">{formatBytes(t.sizeBytes)}</span>
+                                                            </div>
+                                                            <div className="dp2-stat-row">
+                                                                <span className="dp2-stat-val dp2-stat-val--seed">↑{t.seeders ?? "—"}</span>
+                                                                <span className="dp2-stat-val dp2-stat-val--leech">↓{t.leechers ?? "—"}</span>
+                                                            </div>
                                                         </div>
-                                                    </button>
+                                                    </div>
 
-                                                    {/* Rows */}
-                                                    {isOpen && (
-                                                        <div className="dp-rows">
-                                                            {items.map((t, idx) => {
-                                                                const tId = t.magnetUrl || t.infoHash;
-                                                                const isStreaming = streamLoading === tId;
-                                                                const isExpanded = expandedTorrentId === tId;
-                                                                const isVerified = t.threatLevel === "clean" || t.seeders > 50;
+                                                    {/* Actions */}
+                                                    <div className="dp2-card-actions">
+                                                        <button
+                                                            className="dp2-btn-stream"
+                                                            onClick={e => { e.stopPropagation(); handleStream(t); }}
+                                                            disabled={isStreaming}
+                                                        >
+                                                            {isStreaming
+                                                                ? <div className="dp2-spinner-sm" />
+                                                                : <Play size={12} fill="currentColor" />
+                                                            }
+                                                            {isStreaming ? "Loading…" : "Stream"}
+                                                        </button>
+                                                        <button
+                                                            className="dp2-btn-copy"
+                                                            title="Copy magnet link"
+                                                            onClick={e => {
+                                                                e.stopPropagation();
+                                                                navigator.clipboard.writeText(t.magnetUrl || t.infoHash);
+                                                                alert("Copied!");
+                                                            }}
+                                                        >
+                                                            <Copy size={13} />
+                                                        </button>
+                                                        <button
+                                                            className="dp2-btn-expand"
+                                                            onClick={() => setExpandedId(isExpanded ? null : tId)}
+                                                            title="Show details"
+                                                        >
+                                                            {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                                        </button>
+                                                    </div>
 
-                                                                return (
-                                                                    <div
-                                                                        key={tId || idx}
-                                                                        className={`dp-row ${isExpanded ? "expanded" : ""}`}
-                                                                        onClick={() => setExpandedTorrentId(isExpanded ? null : tId)}
-                                                                    >
-                                                                        <div className="dp-row-main">
-                                                                            {/* Left: specs */}
-                                                                            <div className="dp-specs">
-                                                                                {/* Verified icon */}
-                                                                                {isVerified ? (
-                                                                                    <svg className="dp-verified-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                                                                                        <path d="M9 12l2 2 4-4" />
-                                                                                    </svg>
-                                                                                ) : (
-                                                                                    <svg className="dp-unverified-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                                        <circle cx="12" cy="12" r="10" />
-                                                                                    </svg>
-                                                                                )}
-
-                                                                                <span className={`dp-badge q-${qKey(quality)}`}>
-                                                                                    {(t.quality || "?").toUpperCase()}
-                                                                                </span>
-                                                                                <span className="dp-badge codec">
-                                                                                    {(t.codec || t.videoInfo?.codec || "HEVC").toUpperCase()}
-                                                                                </span>
-                                                                                <span className="dp-badge audio">
-                                                                                    {(t.audioCodec || t.audioTracks?.[0]?.codec || "AC3").toUpperCase()}
-                                                                                </span>
-                                                                                <span className="dp-source">
-                                                                                    {t.source || t.releaseGroup || "—"}
-                                                                                </span>
-                                                                            </div>
-
-                                                                            {/* Right: stats + actions */}
-                                                                            <div className="dp-row-right">
-                                                                                <div className="dp-stats">
-                                                                                    <span className="dp-stat-size">{formatBytes(t.sizeBytes)}</span>
-                                                                                    <span className="dp-stat-seed">↑ {t.seeders ?? "—"}</span>
-                                                                                    <span className="dp-stat-leech">↓ {t.leechers ?? "—"}</span>
-                                                                                </div>
-                                                                                <div className="dp-actions">
-                                                                                    <button
-                                                                                        className="dp-btn-stream"
-                                                                                        onClick={e => { e.stopPropagation(); handleStream(t); }}
-                                                                                        disabled={isStreaming}
-                                                                                    >
-                                                                                        {isStreaming
-                                                                                            ? <div className="dp-spinner-sm" />
-                                                                                            : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                                                                                        }
-                                                                                        Stream
-                                                                                    </button>
-                                                                                    <button
-                                                                                        className="dp-btn-copy"
-                                                                                        title="Copy Magnet"
-                                                                                        onClick={e => {
-                                                                                            e.stopPropagation();
-                                                                                            navigator.clipboard.writeText(t.magnetUrl || t.infoHash);
-                                                                                            alert("Copied!");
-                                                                                        }}
-                                                                                    >
-                                                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                                                                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                                                                                        </svg>
-                                                                                    </button>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {/* Expanded detail panel */}
-                                                                        {isExpanded && (
-                                                                            <div className="dp-detail-panel" onClick={e => e.stopPropagation()}>
-                                                                                <div className="dp-detail-col" style={{ gridColumn: "1 / -1" }}>
-                                                                                    <h4>Raw Title</h4>
-                                                                                    <p style={{ wordBreak: "break-all" }}>{t.rawTitle || t.name || t.title || "—"}</p>
-                                                                                </div>
-                                                                                <div className="dp-detail-col">
-                                                                                    <h4>Audio</h4>
-                                                                                    {t.audioTracks?.length > 0
-                                                                                        ? <ul>{t.audioTracks.map((tr, i) => <li key={i}>{tr.lang || tr.language || "Unknown"} · {tr.codec} · {tr.channels}</li>)}</ul>
-                                                                                        : <p>{t.audioCodec || "Unknown"}</p>
-                                                                                    }
-                                                                                </div>
-                                                                                <div className="dp-detail-col">
-                                                                                    <h4>Subtitles</h4>
-                                                                                    {t.subtitleTracks?.length > 0
-                                                                                        ? <div className="dp-sub-list">{t.subtitleTracks.map((s, i) => <span key={i}>{s.lang || s.language || "?"}</span>)}</div>
-                                                                                        : <p>None specified</p>
-                                                                                    }
-                                                                                </div>
-                                                                                <div className="dp-detail-col">
-                                                                                    <h4>Video</h4>
-                                                                                    <p><span>Codec</span> {t.videoInfo?.codec || t.codec || "—"}</p>
-                                                                                    <p><span>Depth</span> {t.videoInfo?.bitDepth || "—"}</p>
-                                                                                    <p><span>Res</span> {t.resolution || t.quality || "—"}</p>
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
+                                                    {/* Expanded detail */}
+                                                    {isExpanded && (
+                                                        <div className="dp2-card-detail" onClick={e => e.stopPropagation()}>
+                                                            <div className="dp2-detail-row">
+                                                                <span className="dp2-detail-label">Title</span>
+                                                                <span className="dp2-detail-val dp2-detail-val--break">{t.rawTitle || t.name || t.title || "—"}</span>
+                                                            </div>
+                                                            <div className="dp2-detail-row">
+                                                                <span className="dp2-detail-label">Video</span>
+                                                                <span className="dp2-detail-val">{t.videoInfo?.codec || t.codec || "—"} · {t.videoInfo?.bitDepth || "—"}bit · {t.resolution || t.quality || "—"}</span>
+                                                            </div>
+                                                            <div className="dp2-detail-row">
+                                                                <span className="dp2-detail-label">Audio</span>
+                                                                <span className="dp2-detail-val">
+                                                                    {t.audioTracks?.length > 0
+                                                                        ? t.audioTracks.map((tr) => `${tr.lang || tr.language || "?"} ${tr.codec || ""}`).join(" · ")
+                                                                        : t.audioCodec || "—"
+                                                                    }
+                                                                </span>
+                                                            </div>
+                                                            {t.subtitleTracks?.length > 0 && (
+                                                                <div className="dp2-detail-row">
+                                                                    <span className="dp2-detail-label">Subs</span>
+                                                                    <div className="dp2-sub-tags">
+                                                                        {t.subtitleTracks.map((s, i) => (
+                                                                            <span key={i} className="dp2-sub-tag">{s.lang || s.language || "?"}</span>
+                                                                        ))}
                                                                     </div>
-                                                                );
-                                                            })}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>

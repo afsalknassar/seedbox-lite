@@ -54,7 +54,7 @@ console.log(`📁 [TORRENT CONTROLLER] File upload configured (max: 5MB)`);
  * Add torrent via magnet URI or infoHash
  */
 const addTorrent = async (req, res) => {
-  const { torrentId } = req.body;
+  const { torrentId, tmdbData } = req.body;
 
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`➕ [TORRENT ADD] Request received`);
@@ -73,6 +73,12 @@ const addTorrent = async (req, res) => {
     const existingTorrent = universalTorrentResolver(torrentId);
     if (existingTorrent) {
       console.log(`✅ [TORRENT ADD] Found existing torrent: ${existingTorrent.name}`);
+      
+      if (tmdbData && existingTorrent.name) {
+        imdbCache.set(existingTorrent.name, tmdbData);
+        console.log(`💾 [TORRENT ADD] Cached frontend-provided TMDB data for ${existingTorrent.name}`);
+      }
+      
       return res.json({
         success: true,
         infoHash: existingTorrent.infoHash,
@@ -86,6 +92,11 @@ const addTorrent = async (req, res) => {
     console.log(`🔄 [TORRENT ADD] Loading new torrent...`);
     const newTorrent = await loadTorrentFromId(torrentId);
     console.log(`✅ [TORRENT ADD] Torrent loaded successfully: ${newTorrent.name}`);
+
+    if (tmdbData && newTorrent.name) {
+      imdbCache.set(newTorrent.name, tmdbData);
+      console.log(`💾 [TORRENT ADD] Cached frontend-provided TMDB data for ${newTorrent.name}`);
+    }
 
     return res.json({
       success: true,

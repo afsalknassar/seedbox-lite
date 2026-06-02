@@ -4,7 +4,7 @@ import { config } from "../config/environment";
 import torrentHistoryService from "../services/torrentHistoryService";
 import "../assets/styles/DetailPage.css";
 import "../assets/styles/HomePage.css"; // For modern-loader-overlay
-import { ArrowLeft, Shield, ShieldOff, Play, Copy, ChevronDown, ChevronUp, Filter, Users, HardDrive } from 'lucide-react';
+import { ArrowLeft, Shield, ShieldOff, Play, Copy, ChevronDown, ChevronUp, Filter, Users, HardDrive, BadgeCheck, BadgeAlert } from 'lucide-react';
 
 // ─── CONFIG ──────────────────────────────────────────────────
 const PROXY = "https://rich-clownfish-18.epaperhubdaily.deno.net";
@@ -32,10 +32,29 @@ const formatBytes = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 };
 
-const Spinner = () => (
-    <div className="modern-loader-container">
-        <div className="modern-spinner" />
-        <p>Loading Details…</p>
+const DetailSkeleton = () => (
+    <div className="dp-skeleton-wrapper">
+        <div className="dp-skeleton-hero">
+            <div className="dp-skeleton-poster pulse" />
+            <div className="dp-skeleton-meta">
+                <div className="dp-skeleton-title pulse" />
+                <div className="dp-skeleton-row pulse" style={{ width: '40%' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '80%', marginTop: '1.5rem' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '70%' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '60%' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '50%' }} />
+            </div>
+        </div>
+        <div className="dp-skeleton-tabs">
+            <div className="dp-skeleton-tab pulse" />
+            <div className="dp-skeleton-tab pulse" />
+            <div className="dp-skeleton-tab pulse" />
+        </div>
+        <div className="dp-skeleton-cards">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="dp-skeleton-card pulse" />
+            ))}
+        </div>
     </div>
 );
 
@@ -54,6 +73,24 @@ const QUALITY_LABELS = {
     "360p": "360p",
     "cam": "CAM",
     "Other": "Other",
+};
+
+// ─── FIREFOX COMPAT CHECK ─────────────────────────────────────
+// Our server remuxes MKV→fMP4 (container fix), but Firefox still
+// can't decode H.265/HEVC frames. H.264, AV1, VP9 all work fine.
+const getFirefoxCompat = (codec) => {
+    const c = (codec || '').toUpperCase();
+    if (!c) return 'unknown';
+    if (
+        c.includes('X264') || c.includes('H264') || c.includes('H.264') ||
+        c.includes('AVC') || c.includes('AV1') || c.includes('VP9') ||
+        c.includes('VP8') || c.includes('MPEG-4')
+    ) return 'yes';
+    if (
+        c.includes('X265') || c.includes('H265') || c.includes('H.265') ||
+        c.includes('HEVC')
+    ) return 'no';
+    return 'unknown';
 };
 
 // ─── COMPONENT ───────────────────────────────────────────────
@@ -180,7 +217,7 @@ export default function DetailPage({ item: propItem, onBack }) {
 
     const handleStream = async (torrent) => {
         const torrentId = torrent.magnetUrl || torrent.infoHash;
-        
+
         const tmdbData = {
             Title: title,
             Year: currentItem?.year || currentItem?.first_air_date?.substring(0, 4) || currentItem?.release_date?.substring(0, 4) || null,
@@ -270,7 +307,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                     </button>
                 </div>
 
-                {loading ? <Spinner /> : error ? (
+                {loading ? <DetailSkeleton /> : error ? (
                     <div className="dp-error-state">{error}</div>
                 ) : (
                     <>
@@ -487,8 +524,10 @@ export default function DetailPage({ item: propItem, onBack }) {
                                             const isStreaming = streamLoading === tId;
                                             const isExpanded = expandedId === tId;
                                             const isVerified = t.threatLevel === "clean" || t.seeders > 50;
+                                            const resolution = (t.resolution || t.quality || "").toUpperCase();
                                             const codec = (t.codec || t.videoInfo?.codec || "").toUpperCase();
                                             const audio = (t.audioCodec || t.audioTracks?.[0]?.codec || "").toUpperCase();
+                                            const ffCompat = getFirefoxCompat(codec);
 
                                             return (
                                                 <div
@@ -497,11 +536,22 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                 >
                                                     {/* Card top */}
                                                     <div className="dp2-card-top" onClick={() => setExpandedId(isExpanded ? null : tId)}>
-                                                        <div className={`dp2-verified-dot ${isVerified ? "ok" : ""}`} title={isVerified ? "Verified" : "Unverified"} />
+                                                        {isVerified ? (
+                                                            <div className="dp2-verified-icon" title="Verified">
+                                                                <Shield size={16} color="#fbbf24" strokeWidth={2.5} />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="dp2-unverified-spacer" />
+                                                        )}
                                                         <div className="dp2-card-info">
                                                             <div className="dp2-card-badges">
+                                                                {resolution && resolution !== "OTHER" && <span className="dp2-badge dp2-badge--res">{resolution}</span>}
                                                                 {codec && <span className="dp2-badge dp2-badge--codec">{codec}</span>}
                                                                 {audio && <span className="dp2-badge dp2-badge--audio">{audio}</span>}
+
+                                                                {ffCompat === 'no' && (
+                                                                    <span className="dp2-badge dp2-badge--ff-no" title="Firefox: H.265/HEVC not supported natively">!</span>
+                                                                )}
                                                             </div>
                                                             <p className="dp2-card-source">{t.source || t.releaseGroup || t.rawTitle?.slice(0, 40) || "Unknown release"}</p>
                                                         </div>
@@ -579,6 +629,13 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                                     </div>
                                                                 </div>
                                                             )}
+                                                            {ffCompat === 'no' && (
+                                                                <div className="dp2-detail-row">
+                                                                    <span className="dp2-detail-label">FireFox</span>
+                                                                    <span className="dp2-badge dp2-badge--ff-no" title="Firefox: H.265/HEVC not supported natively">Maybe Not Supported</span>
+                                                                </div>
+                                                            )}
+
                                                         </div>
                                                     )}
                                                 </div>

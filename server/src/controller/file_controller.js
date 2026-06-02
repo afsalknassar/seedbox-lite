@@ -339,75 +339,37 @@ const REMUX_EXTENSIONS = ['mkv', 'avi', 'mov', 'wmv', 'flv'];
  * Fixes Firefox: Firefox refuses video/x-matroska but plays video/mp4 fMP4.
  */
 const remuxViaCopy = (file, req, res, debugLevel) => {
-  const fileSize = file.length;
-  const rangeHeader = req.headers.range;
-
-  // ── Parse Range Header ─────────────────────────────────────────────────────
-  // The browser sends Range: bytes=N- when the user seeks to a new position.
-  // We start the torrent read at byte N so FFmpeg gets data from near there.
-  // For MKV, FFmpeg auto-resyncs to the next cluster keyframe — approximate
-  // but good-enough seeking without full re-encode.
-  let startByte = 0;
-  if (rangeHeader) {
-    const parts = rangeHeader.replace(/bytes=/, '').split('-');
-    startByte = parseInt(parts[0], 10) || 0;
-  }
-
-  // ── Response Headers ─────────────────────────────────────────────────────
-  // Accept-Ranges: bytes → tells browser it CAN seek (critical fix!)
-  // Content-Length       → lets video.buffered track download progress correctly
-  //                        (fixes the incorrect solid blue bar)
-  const responseHeaders = {
+  res.writeHead(200, {
     'Content-Type': 'video/mp4',
-    'Accept-Ranges': 'bytes',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Range, Content-Type',
-    'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
+    'Transfer-Encoding': 'chunked',
     'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Connection': 'keep-alive',
-  };
+  });
 
-  if (startByte > 0) {
-    // Seek request → 206 Partial Content
-    // Content-Length is approximate: fMP4 output ≈ same size as input for copy mode
-    responseHeaders['Content-Range'] = `bytes ${startByte}-${fileSize - 1}/${fileSize}`;
-    responseHeaders['Content-Length'] = fileSize - startByte;
-    res.writeHead(206, responseHeaders);
-    if (debugLevel) {
-      console.log(`🔍 [REMUX] Seek: byte ${startByte} / ${fileSize} (${((startByte / fileSize) * 100).toFixed(1)}%)`);
-    }
-  } else {
-    // Initial load → 200 OK
-    responseHeaders['Content-Length'] = fileSize;
-    res.writeHead(200, responseHeaders);
-    if (debugLevel) {
-      console.log(`🎬 [REMUX] Start: ${file.name} (${(fileSize / 1024 / 1024 / 1024).toFixed(2)} GB)`);
-    }
-  }
+  const torrentStream = file.createReadStream();
 
-  // ── Torrent Stream ─────────────────────────────────────────────────────
-  // Start reading from the requested byte offset.
-  // For MKV files, FFmpeg scans forward from startByte to the next cluster
-  // sync element and begins output from there — giving approximate seeking.
-  const torrentStream = file.createReadStream({ start: startByte });
-
-  // ── FFmpeg ──────────────────────────────────────────────────────────────
   const ffmpegArgs = [
-    '-i', 'pipe:0',          // read from stdin (torrent byte stream)
+    '-i', 'pipe:0',          // read from stdin (torrent stream)
     '-c:v', 'copy',          // copy video — NO re-encode
     '-c:a', 'copy',          // copy audio — NO re-encode
     '-movflags', 'frag_keyframe+empty_moov+faststart',
-    '-f', 'mp4',             // fragmented MP4 output
+    '-f', 'mp4',             // output format
     'pipe:1'                 // write to stdout → HTTP response
   ];
 
+  if (debugLevel) {
+    console.log(`🎬 [REMUX] FFmpeg copy starting: ${file.name}`);
+    console.log(`   - Args: ffmpeg ${ffmpegArgs.join(' ')}`);
+  }
+
   const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
 
+  // Torrent → FFmpeg stdin → Browser
   torrentStream.pipe(ffmpegProcess.stdin);
   ffmpegProcess.stdout.pipe(res);
 
-  // Always drain stderr — if not consumed, FFmpeg’s internal buffer fills up
-  // and the stdout pipe stalls, causing the video to freeze
+  // Always drain stderr — if not read, FFmpeg will block and stall the stream
   if (debugLevel) {
     ffmpegProcess.stderr.on('data', (data) =>
       console.log(`[FFmpeg] ${data.toString().trim()}`)
@@ -416,22 +378,12 @@ const remuxViaCopy = (file, req, res, debugLevel) => {
     ffmpegProcess.stderr.resume();
   }
 
-  // ── Cleanup ──────────────────────────────────────────────────────────────
-  // Kill FFmpeg on client disconnect (seeking triggers a new request, closing the old one)
-  // Then debounced-thaw so background torrents resume after idle
+  // When the client disconnects (closes browser tab / seeks), kill FFmpeg immediately
   req.on('close', () => {
     if (debugLevel) console.log(`🛑 [REMUX] Client closed — killing FFmpeg`);
     torrentStream.destroy();
     try { ffmpegProcess.stdin.destroy(); } catch (_) {}
     ffmpegProcess.kill('SIGKILL');
-
-    // Resume background torrents after 10s of inactivity (same as range path)
-    streamThawTimeout = setTimeout(() => {
-      client.torrents.forEach(t => {
-        if (t.paused && t.progress < 1) t.resume();
-      });
-      if (debugLevel) console.log('🔓 [REMUX] Thaw: background torrents resumed');
-    }, 10000);
   });
 
   ffmpegProcess.on('error', (err) => {

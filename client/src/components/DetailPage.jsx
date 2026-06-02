@@ -550,7 +550,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                                 {audio && <span className="dp2-badge dp2-badge--audio">{audio}</span>}
                                             
                                                                 {ffCompat === 'no' && (
-                                                                    <span title="Firefox: H.265/HEVC not supported natively"><BadgeAlert size={16} color="#d1471aff" strokeWidth={2.5} /></span>
+                                                                    <span className="dp2-badge dp2-badge--ff-no" title="Firefox: H.265/HEVC not supported natively">Firefox ❌</span>
                                                                 )}
                                                             </div>
                                                             <p className="dp2-card-source">{t.source || t.releaseGroup || t.rawTitle?.slice(0, 40) || "Unknown release"}</p>

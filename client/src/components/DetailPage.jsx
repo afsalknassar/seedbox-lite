@@ -83,8 +83,8 @@ const getFirefoxCompat = (codec) => {
     if (!c) return 'unknown';
     if (
         c.includes('X264') || c.includes('H264') || c.includes('H.264') ||
-        c.includes('AVC')  || c.includes('AV1')  || c.includes('VP9')   ||
-        c.includes('VP8')  || c.includes('MPEG-4')
+        c.includes('AVC') || c.includes('AV1') || c.includes('VP9') ||
+        c.includes('VP8') || c.includes('MPEG-4')
     ) return 'yes';
     if (
         c.includes('X265') || c.includes('H265') || c.includes('H.265') ||
@@ -217,7 +217,7 @@ export default function DetailPage({ item: propItem, onBack }) {
 
     const handleStream = async (torrent) => {
         const torrentId = torrent.magnetUrl || torrent.infoHash;
-        
+
         const tmdbData = {
             Title: title,
             Year: currentItem?.year || currentItem?.first_air_date?.substring(0, 4) || currentItem?.release_date?.substring(0, 4) || null,
@@ -548,9 +548,9 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                                 {resolution && resolution !== "OTHER" && <span className="dp2-badge dp2-badge--res">{resolution}</span>}
                                                                 {codec && <span className="dp2-badge dp2-badge--codec">{codec}</span>}
                                                                 {audio && <span className="dp2-badge dp2-badge--audio">{audio}</span>}
-                                            
+
                                                                 {ffCompat === 'no' && (
-                                                                    <span className="dp2-badge dp2-badge--ff-no" title="Firefox: H.265/HEVC not supported natively">Firefox ❌</span>
+                                                                    <span className="dp2-badge dp2-badge--ff-no" title="Firefox: H.265/HEVC not supported natively">!</span>
                                                                 )}
                                                             </div>
                                                             <p className="dp2-card-source">{t.source || t.releaseGroup || t.rawTitle?.slice(0, 40) || "Unknown release"}</p>
@@ -629,6 +629,13 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                                     </div>
                                                                 </div>
                                                             )}
+                                                            {ffCompat === 'no' && (
+                                                                <div className="dp2-detail-row">
+                                                                    <span className="dp2-detail-label">FireFox</span>
+                                                                    <span className="dp2-badge dp2-badge--ff-no" title="Firefox: H.265/HEVC not supported natively">Maybe Not Supported</span>
+                                                                </div>
+                                                            )}
+
                                                         </div>
                                                     )}
                                                 </div>

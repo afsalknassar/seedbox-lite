@@ -22,7 +22,6 @@ const { client } = require('../torrent_client');
 const { universalTorrentResolver } = require('../utils/torrent_utils');
 const fs = require('fs').promises;
 const path = require('path');
-const { spawn } = require('child_process');
 // ============================================================================
 // GET TORRENT FILES ENDPOINT
 // ============================================================================
@@ -316,94 +315,6 @@ const downloadSubtitle = async (req, res) => {
  * - Debounced Thaw: Prevents chunk thrashing with 10s delay
  * - Piece Prioritization: Prioritizes needed pieces for smooth playback
  */
-// ============================================================================
-// REMUX HELPER — FFmpeg copy mode (no re-encode, container swap only)
-// ============================================================================
-
-// File extensions that browsers cannot play natively.
-// These get remuxed to fragmented MP4 on-the-fly by FFmpeg.
-const REMUX_EXTENSIONS = ['mkv', 'avi', 'mov', 'wmv', 'flv'];
-
-/**
- * Remux MKV/AVI/etc → fragmented MP4 via FFmpeg copy mode.
- *
- * How it works:
- *   Torrent stream → FFmpeg stdin (-c:v copy -c:a copy) → FFmpeg stdout → Browser
- *
- * - No re-encoding: video/audio tracks are copied as-is. CPU usage ~2-5%.
- * - frag_keyframe+empty_moov: writes moov atom first so piped output is
- *   playable immediately without seeking the input stream.
- * - No Accept-Ranges: browser plays progressively; seeking within buffered
- *   portion works, jumping ahead waits for buffer (normal torrent behavior).
- *
- * Fixes Firefox: Firefox refuses video/x-matroska but plays video/mp4 fMP4.
- */
-const remuxViaCopy = (file, req, res, debugLevel) => {
-  res.writeHead(200, {
-    'Content-Type': 'video/mp4',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Range, Content-Type',
-    'Transfer-Encoding': 'chunked',
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-  });
-
-  const torrentStream = file.createReadStream();
-
-  const ffmpegArgs = [
-    '-i', 'pipe:0',          // read from stdin (torrent stream)
-    '-c:v', 'copy',          // copy video — NO re-encode
-    '-c:a', 'copy',          // copy audio — NO re-encode
-    '-movflags', 'frag_keyframe+empty_moov+faststart',
-    '-f', 'mp4',             // output format
-    'pipe:1'                 // write to stdout → HTTP response
-  ];
-
-  if (debugLevel) {
-    console.log(`🎬 [REMUX] FFmpeg copy starting: ${file.name}`);
-    console.log(`   - Args: ffmpeg ${ffmpegArgs.join(' ')}`);
-  }
-
-  const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
-
-  // Torrent → FFmpeg stdin → Browser
-  torrentStream.pipe(ffmpegProcess.stdin);
-  ffmpegProcess.stdout.pipe(res);
-
-  // Always drain stderr — if not read, FFmpeg will block and stall the stream
-  if (debugLevel) {
-    ffmpegProcess.stderr.on('data', (data) =>
-      console.log(`[FFmpeg] ${data.toString().trim()}`)
-    );
-  } else {
-    ffmpegProcess.stderr.resume();
-  }
-
-  // When the client disconnects (closes browser tab / seeks), kill FFmpeg immediately
-  req.on('close', () => {
-    if (debugLevel) console.log(`🛑 [REMUX] Client closed — killing FFmpeg`);
-    torrentStream.destroy();
-    try { ffmpegProcess.stdin.destroy(); } catch (_) {}
-    ffmpegProcess.kill('SIGKILL');
-  });
-
-  ffmpegProcess.on('error', (err) => {
-    console.error(`❌ [REMUX] FFmpeg process error: ${err.message}`);
-    if (!res.headersSent) res.status(500).end();
-    else res.end();
-  });
-
-  torrentStream.on('error', (err) => {
-    console.error(`❌ [REMUX] Torrent stream error: ${err.message}`);
-    ffmpegProcess.kill('SIGKILL');
-  });
-
-  if (debugLevel) {
-    ffmpegProcess.on('close', (code) =>
-      console.log(`[FFmpeg] Process exited with code ${code}`)
-    );
-  }
-};
-
 let streamThawTimeout = null;
 
 const streamFile = async (req, res) => {
@@ -491,18 +402,6 @@ const streamFile = async (req, res) => {
 
     // We found the file, clear the setup timeout so it doesn't linger
     clearTimeout(setupTimeout);
-
-    // ── REMUX PATH ─────────────────────────────────────────────────────────────
-    // MKV, AVI, MOV, WMV, FLV cannot be played natively in Firefox.
-    // Remux to fragmented MP4 via FFmpeg copy mode (no re-encode, ~0 CPU cost).
-    // MP4 and WebM files skip this entirely and use the range-based path below.
-    if (REMUX_EXTENSIONS.includes(ext)) {
-      if (debugLevel) {
-        console.log(`🎬 [STREAM] ${file.name} → remux path (FFmpeg copy)`);
-      }
-      return remuxViaCopy(file, req, res, debugLevel);
-    }
-    // ── END REMUX PATH ─────────────────────────────────────────────────────────
 
     if (debugLevel) {
       console.log(`🎬 [STREAM] Streaming: ${file.name}`);

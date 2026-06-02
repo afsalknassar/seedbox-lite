@@ -4,7 +4,7 @@ import { config } from "../config/environment";
 import torrentHistoryService from "../services/torrentHistoryService";
 import "../assets/styles/DetailPage.css";
 import "../assets/styles/HomePage.css"; // For modern-loader-overlay
-import { ArrowLeft, Shield, ShieldOff, Play, Copy, ChevronDown, ChevronUp, Filter, Users, HardDrive, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, Shield, ShieldOff, Play, Copy, ChevronDown, ChevronUp, Filter, Users, HardDrive, BadgeCheck, BadgeAlert } from 'lucide-react';
 
 // ─── CONFIG ──────────────────────────────────────────────────
 const PROXY = "https://rich-clownfish-18.epaperhubdaily.deno.net";
@@ -73,6 +73,24 @@ const QUALITY_LABELS = {
     "360p": "360p",
     "cam": "CAM",
     "Other": "Other",
+};
+
+// ─── FIREFOX COMPAT CHECK ─────────────────────────────────────
+// Our server remuxes MKV→fMP4 (container fix), but Firefox still
+// can't decode H.265/HEVC frames. H.264, AV1, VP9 all work fine.
+const getFirefoxCompat = (codec) => {
+    const c = (codec || '').toUpperCase();
+    if (!c) return 'unknown';
+    if (
+        c.includes('X264') || c.includes('H264') || c.includes('H.264') ||
+        c.includes('AVC')  || c.includes('AV1')  || c.includes('VP9')   ||
+        c.includes('VP8')  || c.includes('MPEG-4')
+    ) return 'yes';
+    if (
+        c.includes('X265') || c.includes('H265') || c.includes('H.265') ||
+        c.includes('HEVC')
+    ) return 'no';
+    return 'unknown';
 };
 
 // ─── COMPONENT ───────────────────────────────────────────────
@@ -509,6 +527,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                                             const resolution = (t.resolution || t.quality || "").toUpperCase();
                                             const codec = (t.codec || t.videoInfo?.codec || "").toUpperCase();
                                             const audio = (t.audioCodec || t.audioTracks?.[0]?.codec || "").toUpperCase();
+                                            const ffCompat = getFirefoxCompat(codec);
 
                                             return (
                                                 <div
@@ -519,7 +538,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                     <div className="dp2-card-top" onClick={() => setExpandedId(isExpanded ? null : tId)}>
                                                         {isVerified ? (
                                                             <div className="dp2-verified-icon" title="Verified">
-                                                                <BadgeCheck size={16} color="#fbbf24" strokeWidth={2.5} />
+                                                                <Shield size={16} color="#fbbf24" strokeWidth={2.5} />
                                                             </div>
                                                         ) : (
                                                             <div className="dp2-unverified-spacer" />
@@ -529,6 +548,10 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                                 {resolution && resolution !== "OTHER" && <span className="dp2-badge dp2-badge--res">{resolution}</span>}
                                                                 {codec && <span className="dp2-badge dp2-badge--codec">{codec}</span>}
                                                                 {audio && <span className="dp2-badge dp2-badge--audio">{audio}</span>}
+                                            
+                                                                {ffCompat === 'no' && (
+                                                                    <span title="Firefox: H.265/HEVC not supported natively"><BadgeAlert size={16} color="#d1471aff" strokeWidth={2.5} /></span>
+                                                                )}
                                                             </div>
                                                             <p className="dp2-card-source">{t.source || t.releaseGroup || t.rawTitle?.slice(0, 40) || "Unknown release"}</p>
                                                         </div>

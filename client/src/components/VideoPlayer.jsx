@@ -975,40 +975,42 @@ const VideoPlayer = ({
                   </div>
 
                   <div className="settings-section1 vlc-section">
-                    <span style={{ marginTop: "10px" }}>External Player</span>
-                    {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
-                    <a
-                      href={`vlc://${config.apiBaseUrl.replace(/^https?:\/\//, '')}/api/torrents/${torrentHash}/files/${fileIndex}`}
-                      className="settings-option vlc-direct-btn"
-                      title="Open directly in VLC (no download)"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Inline VLC traffic-cone SVG — no image load */}
-                      <svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                        <polygon points="50,8 90,88 10,88" fill="#f90" />
-                        <rect x="18" y="72" width="64" height="10" rx="4" fill="#e55" />
-                        <rect x="28" y="54" width="44" height="9" rx="3" fill="#fff" opacity="0.9" />
-                        <ellipse cx="50" cy="90" rx="38" ry="7" fill="#c44" />
-                      </svg>
-                      <span style={{ fontSize: '11px' }}>Open in VLC</span>
-                    </a>
-                    {/* Copy Stream Link */}
-                    <button
-                      type="button"
-                      className="settings-option vlc-playlist-btn"
-                      title="Copy stream link to clipboard"
-                      onClick={() => {
-                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`;
-                        navigator.clipboard.writeText(url).then(() => {
-                          alert('Stream link copied to clipboard!');
-                        }).catch(err => {
-                          console.error('Failed to copy stream link:', err);
-                        });
-                      }}
-                    >
-                      <Copy size={16} />
-                      <span style={{ fontSize: '11px' }}>Copy Link</span>
-                    </button>
+                    <span>External Player</span>
+                    <div className="vlc-buttons-container">
+                      {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
+                      <a
+                        href={`vlc://${config.apiBaseUrl.replace(/^https?:\/\//, '')}/api/torrents/${torrentHash}/files/${fileIndex}`}
+                        className="settings-option vlc-direct-btn"
+                        title="Open directly in VLC (requires vlc:// protocol handler)"
+                        onClick={(e) => { e.stopPropagation(); }}
+                      >
+                        {/* Inline VLC traffic-cone SVG — no image load */}
+                        <svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                          <polygon points="50,8 90,88 10,88" fill="#f90" />
+                          <rect x="18" y="72" width="64" height="10" rx="4" fill="#e55" />
+                          <rect x="28" y="54" width="44" height="9" rx="3" fill="#fff" opacity="0.9" />
+                          <ellipse cx="50" cy="90" rx="38" ry="7" fill="#c44" />
+                        </svg>
+                        <span style={{ fontSize: '11px' }}>Open in VLC</span>
+                      </a>
+                      {/* Copy Stream Link */}
+                      <button
+                        type="button"
+                        className="settings-option vlc-playlist-btn"
+                        title="Copy stream link to clipboard"
+                        onClick={() => {
+                          const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`;
+                          navigator.clipboard.writeText(url).then(() => {
+                            alert('Stream link copied to clipboard!');
+                          }).catch(err => {
+                            console.error('Failed to copy stream link:', err);
+                          });
+                        }}
+                      >
+                        <Copy size={16} />
+                        <span style={{ fontSize: '11px' }}>Copy Link</span>
+                      </button>
+                    </div>
                   </div>
 
 

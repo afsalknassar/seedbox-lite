@@ -639,31 +639,11 @@ const downloadFile = async (req, res) => {
   }
 };
 
-const downloadPlaylist = (req, res) => {
-  const { identifier, fileIdx } = req.params;
-
-  // Build the full absolute stream URL so VLC knows where to connect
-  const host = req.get('host');
-  const protocol = req.protocol;
-  const streamUrl = `${protocol}://${host}/api/torrents/${identifier}/files/${fileIdx}`;
-
-  // Standard M3U playlist content
-  const m3uContent = `#EXTM3U\n#EXTINF:-1,Seedbox Stream\n${streamUrl}\n`;
-
-  // Use video/x-mpegurl (NOT audio/x-mpegurl) so the OS opens it with
-  // a VIDEO player (VLC) rather than a music player (Windows Media Player etc.)
-  res.setHeader('Content-Type', 'video/x-mpegurl');
-  res.setHeader('Content-Disposition', `attachment; filename="stream_${identifier}.m3u"`);
-
-  res.send(m3uContent);
-};
-
 // ============================================================================
 // EXPORTS
 // ============================================================================
 
 module.exports = {
-  downloadPlaylist,
   getTorrentFiles,
   getSubtitle,
   searchSubtitles,

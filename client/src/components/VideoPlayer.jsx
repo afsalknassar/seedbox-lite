@@ -3,7 +3,7 @@ import {
   Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward,
   Settings, Download, Loader2, Users, Activity, Wifi, WifiOff,
   TrendingUp, TrendingDown, Subtitles, Languages, Search, Globe, X, Minimize2,
-  Server
+  Server, Copy
 } from 'lucide-react';
 import { config } from '../config/environment';
 import progressService from '../services/progressService';
@@ -975,7 +975,7 @@ const VideoPlayer = ({
                   </div>
 
                   <div className="settings-section1 vlc-section">
-                    <span>External Player</span>
+                    <span style={{ marginTop: "10px" }}>External Player</span>
                     {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
                     <a
                       href={`vlc://${config.apiBaseUrl.replace(/^https?:\/\//, '')}/api/torrents/${torrentHash}/files/${fileIndex}`}
@@ -992,22 +992,22 @@ const VideoPlayer = ({
                       </svg>
                       <span style={{ fontSize: '11px' }}>Open in VLC</span>
                     </a>
-                    {/* Fallback: download .m3u playlist */}
+                    {/* Copy Stream Link */}
                     <button
                       type="button"
                       className="settings-option vlc-playlist-btn"
-                      title="Download .m3u playlist (fallback)"
+                      title="Copy stream link to clipboard"
                       onClick={() => {
-                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}/playlist`;
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'stream.m3u';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
+                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`;
+                        navigator.clipboard.writeText(url).then(() => {
+                          alert('Stream link copied to clipboard!');
+                        }).catch(err => {
+                          console.error('Failed to copy stream link:', err);
+                        });
                       }}
                     >
-                      <span style={{ fontSize: '11px' }}>📥 .m3u</span>
+                      <Copy size={16} />
+                      <span style={{ fontSize: '11px' }}>Copy Link</span>
                     </button>
                   </div>
 

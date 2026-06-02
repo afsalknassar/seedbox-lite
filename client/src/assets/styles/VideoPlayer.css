@@ -417,7 +417,7 @@
 }
 
 .minimal-buffering-indicator.above-controls {
-  bottom: 80px;
+  bottom: 110px;
 }
 
 .minimal-buffering-indicator.bottom {
@@ -467,7 +467,7 @@
 /* Mobile optimization */
 @media (max-width: 768px) {
   .minimal-buffering-indicator.above-controls {
-    bottom: 70px;
+    bottom: 95px;
   }
 
   .minimal-buffering-indicator {
@@ -838,7 +838,7 @@
   border-radius: 12px;
   padding: 6px;
   min-width: 200px;
-  
+
   /* CRITICAL FOR LONG LISTS: Restricts height and adds scrolling */
   max-height: 250px;
   overflow-y: auto;
@@ -1112,14 +1112,15 @@
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-  background: rgba(255, 165, 0, 0.05); /* very subtle orange tint */
+  background: rgba(255, 165, 0, 0.05);
+  /* very subtle orange tint */
   border: 1px solid rgba(255, 165, 0, 0.15);
   border-radius: 8px;
   margin-top: 8px;
   margin-bottom: 24px;
 }
 
-.vlc-section > span {
+.vlc-section>span {
   color: #ffa500 !important;
   font-weight: 600;
   border-bottom: none !important;
@@ -1170,6 +1171,7 @@ a.vlc-direct-btn:hover {
   padding: 7px 10px !important;
   cursor: pointer;
   transition: all 0.2s ease;
+  justify-content: center;
 }
 
 .vlc-playlist-btn:hover {

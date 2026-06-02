@@ -976,39 +976,41 @@ const VideoPlayer = ({
 
                   <div className="settings-section1 vlc-section">
                     <span>External Player</span>
-                    {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
-                    <a
-                      href={`vlc://${config.apiBaseUrl.replace(/^https?:\/\//, '')}/api/torrents/${torrentHash}/files/${fileIndex}`}
-                      className="settings-option vlc-direct-btn"
-                      title="Open directly in VLC (no download)"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {/* Inline VLC traffic-cone SVG — no image load */}
-                      <svg width="18" height="18" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                        <polygon points="50,8 90,88 10,88" fill="#f90" />
-                        <rect x="18" y="72" width="64" height="10" rx="4" fill="#e55" />
-                        <rect x="28" y="54" width="44" height="9" rx="3" fill="#fff" opacity="0.9" />
-                        <ellipse cx="50" cy="90" rx="38" ry="7" fill="#c44" />
-                      </svg>
-                      <span style={{ fontSize: '11px' }}>Open in VLC</span>
-                    </a>
-                    {/* Fallback: download .m3u playlist */}
-                    <button
-                      type="button"
-                      className="settings-option vlc-playlist-btn"
-                      title="Download .m3u playlist (fallback)"
-                      onClick={() => {
-                        const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}/playlist`;
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'stream.m3u';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                      }}
-                    >
-                      <span style={{ fontSize: '11px' }}>📥 .m3u</span>
-                    </button>
+                    <div className="vlc-buttons-container">
+                      {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
+                      <a
+                        href={`vlc://${new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`, window.location.origin).href.replace(/^https?:\/\//, '')}`}
+                        className="vlc-direct-btn"
+                        title="Open directly in VLC (no download)"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Inline VLC traffic-cone SVG — no image load */}
+                        <svg width="16" height="16" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                          <polygon points="50,8 90,88 10,88" fill="#fff" />
+                          <rect x="18" y="72" width="64" height="10" rx="4" fill="#ff7a00" />
+                          <rect x="28" y="54" width="44" height="9" rx="3" fill="#333" opacity="0.9" />
+                          <ellipse cx="50" cy="90" rx="38" ry="7" fill="#ff5500" />
+                        </svg>
+                        <span>Open in VLC</span>
+                      </a>
+                      {/* Fallback: download .m3u playlist */}
+                      <button
+                        type="button"
+                        className="vlc-playlist-btn"
+                        title="Download .m3u playlist (fallback)"
+                        onClick={() => {
+                          const url = new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}/playlist`, window.location.origin).href;
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'stream.m3u';
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }}
+                      >
+                        <span>📥 Download .m3u</span>
+                      </button>
+                    </div>
                   </div>
 
 

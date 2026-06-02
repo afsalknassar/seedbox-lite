@@ -4,7 +4,7 @@ import { config } from "../config/environment";
 import torrentHistoryService from "../services/torrentHistoryService";
 import "../assets/styles/DetailPage.css";
 import "../assets/styles/HomePage.css"; // For modern-loader-overlay
-import { ArrowLeft, Shield, ShieldOff, Play, Copy, ChevronDown, ChevronUp, Filter, Users, HardDrive } from 'lucide-react';
+import { ArrowLeft, Shield, ShieldOff, Play, Copy, ChevronDown, ChevronUp, Filter, Users, HardDrive, BadgeCheck } from 'lucide-react';
 
 // ─── CONFIG ──────────────────────────────────────────────────
 const PROXY = "https://rich-clownfish-18.epaperhubdaily.deno.net";
@@ -32,10 +32,29 @@ const formatBytes = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 };
 
-const Spinner = () => (
-    <div className="modern-loader-container">
-        <div className="modern-spinner" />
-        <p>Loading Details…</p>
+const DetailSkeleton = () => (
+    <div className="dp-skeleton-wrapper">
+        <div className="dp-skeleton-hero">
+            <div className="dp-skeleton-poster pulse" />
+            <div className="dp-skeleton-meta">
+                <div className="dp-skeleton-title pulse" />
+                <div className="dp-skeleton-row pulse" style={{ width: '40%' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '80%', marginTop: '1.5rem' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '70%' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '60%' }} />
+                <div className="dp-skeleton-row pulse" style={{ width: '50%' }} />
+            </div>
+        </div>
+        <div className="dp-skeleton-tabs">
+            <div className="dp-skeleton-tab pulse" />
+            <div className="dp-skeleton-tab pulse" />
+            <div className="dp-skeleton-tab pulse" />
+        </div>
+        <div className="dp-skeleton-cards">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="dp-skeleton-card pulse" />
+            ))}
+        </div>
     </div>
 );
 
@@ -270,7 +289,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                     </button>
                 </div>
 
-                {loading ? <Spinner /> : error ? (
+                {loading ? <DetailSkeleton /> : error ? (
                     <div className="dp-error-state">{error}</div>
                 ) : (
                     <>
@@ -487,6 +506,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                                             const isStreaming = streamLoading === tId;
                                             const isExpanded = expandedId === tId;
                                             const isVerified = t.threatLevel === "clean" || t.seeders > 50;
+                                            const resolution = (t.resolution || t.quality || "").toUpperCase();
                                             const codec = (t.codec || t.videoInfo?.codec || "").toUpperCase();
                                             const audio = (t.audioCodec || t.audioTracks?.[0]?.codec || "").toUpperCase();
 
@@ -497,9 +517,16 @@ export default function DetailPage({ item: propItem, onBack }) {
                                                 >
                                                     {/* Card top */}
                                                     <div className="dp2-card-top" onClick={() => setExpandedId(isExpanded ? null : tId)}>
-                                                        <div className={`dp2-verified-dot ${isVerified ? "ok" : ""}`} title={isVerified ? "Verified" : "Unverified"} />
+                                                        {isVerified ? (
+                                                            <div className="dp2-verified-icon" title="Verified">
+                                                                <BadgeCheck size={16} color="#fbbf24" strokeWidth={2.5} />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="dp2-unverified-spacer" />
+                                                        )}
                                                         <div className="dp2-card-info">
                                                             <div className="dp2-card-badges">
+                                                                {resolution && resolution !== "OTHER" && <span className="dp2-badge dp2-badge--res">{resolution}</span>}
                                                                 {codec && <span className="dp2-badge dp2-badge--codec">{codec}</span>}
                                                                 {audio && <span className="dp2-badge dp2-badge--audio">{audio}</span>}
                                                             </div>

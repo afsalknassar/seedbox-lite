@@ -661,7 +661,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 6px;
-  min-width: 140px;
+  min-width: 200px;
   
   /* CRITICAL FOR LONG LISTS: Restricts height and adds scrolling */
   max-height: 250px; 
@@ -906,54 +906,75 @@
 }
 
 .vlc-section {
-  padding: 1px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(255, 165, 0, 0.05); /* very subtle orange tint */
+  border: 1px solid rgba(255, 165, 0, 0.15);
+  border-radius: 8px;
+  margin-top: 8px;
   margin-bottom: 24px;
 }
 
-/* VLC External Player buttons */
-.vlc-section .settings-option {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.vlc-section > span {
+  color: #ffa500 !important;
+  font-weight: 600;
+  border-bottom: none !important;
+  padding: 0 0 4px 0 !important;
+  margin-bottom: 0 !important;
 }
 
-/* "Open in VLC" direct link — styled like a button */
+.vlc-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
 a.vlc-direct-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
   text-decoration: none;
-  color: #e4e4e7;
-  background: rgba(255, 165, 0, 0.12);
-  border: 1px solid rgba(255, 165, 0, 0.25);
+  color: #fff;
+  background: linear-gradient(135deg, rgba(255, 165, 0, 0.8), rgba(255, 140, 0, 0.9));
+  border: 1px solid rgba(255, 165, 0, 0.5);
   border-radius: 6px;
-  padding: 7px 10px;
-  font-size: 0.75rem;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(255, 165, 0, 0.2);
 }
 
 a.vlc-direct-btn:hover {
-  background: rgba(255, 165, 0, 0.22);
-  border-color: rgba(255, 165, 0, 0.45);
-  color: #ffa500;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(255, 165, 0, 0.3);
+  background: linear-gradient(135deg, rgba(255, 175, 20, 0.9), rgba(255, 150, 0, 1));
 }
 
-/* ".m3u fallback" button */
 .vlc-playlist-btn {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 6px !important;
-  font-size: 0.72rem !important;
-  color: #a1a1aa !important;
-  padding: 7px 10px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #e4e4e7;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .vlc-playlist-btn:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  color: #e4e4e7 !important;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
 }
 
 

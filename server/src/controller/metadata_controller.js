@@ -296,10 +296,13 @@ const getIMDBData = async (req, res) => {
 
     if (debugLevel) console.log(`🎬 [IMDB ENDPOINT] Found torrent: ${torrent.name}, fetching IMDB data...`);
 
-    // Use Promise.race to implement a secondary timeout for just the API call
-    console.log(`🎬 [IMDB ENDPOINT] Fetching IMDB data for: ${torrent.name}`);
+    const passedTitle = req.query.title;
+    const searchName = passedTitle ? passedTitle : torrent.name;
 
-    const imdbDataPromise = fetchIMDBData(torrent.name);
+    // Use Promise.race to implement a secondary timeout for just the API call
+    console.log(`🎬 [IMDB ENDPOINT] Fetching IMDB data for: ${searchName}`);
+
+    const imdbDataPromise = fetchIMDBData(searchName);
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('IMDB API timeout')), 10000)
     );

@@ -46,36 +46,31 @@ const TorrentPageNetflix = () => {
         setLoading(true);
         setError(null);
 
-        // If we already have TMDB data from DetailPage, skip the /imdb API call
-        if (passedTmdbData) {
-          console.log('🎬 [TorrentPage] Using pre-fetched TMDB data, skipping /imdb API call');
-          setImdbData(passedTmdbData);
-          if (passedTmdbData.Poster) {
-            torrentHistoryService.updatePoster(torrentHash, passedTmdbData.Poster);
-          }
+      
+        // 2. Build title query for better IMDB API matching
+        const titleQuery = passedTmdbData?.Title ? `?title=${encodeURIComponent(passedTmdbData.Title)}` : '';
 
-          const torrentRes = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`, { signal });
-          if (!torrentRes.ok) throw new Error('Failed to fetch torrent data');
-          const torrentData = await torrentRes.json();
-          setTorrent(torrentData.torrent);
-          setFiles(torrentData.files || []);
-        } else {
-          // Fallback: Fetch IMDB and Torrent Details in parallel
-          const [imdbRes, torrentRes] = await Promise.all([
-            fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}/imdb`, { signal }).catch(() => null),
-            fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`, { signal })
-          ]);
+        // 3. Fetch full IMDB details and Torrent Details in parallel
+        const [imdbRes, torrentRes] = await Promise.all([
+          fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}/imdb${titleQuery}`, { signal }).catch(() => null),
+          fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`, { signal })
+        ]);
 
-          if (!torrentRes.ok) throw new Error('Failed to fetch torrent data');
+        if (!torrentRes.ok) throw new Error('Failed to fetch torrent data');
 
-          const torrentData = await torrentRes.json();
-          setTorrent(torrentData.torrent);
-          setFiles(torrentData.files || []);
+        const torrentData = await torrentRes.json();
+        setTorrent(torrentData.torrent);
+        setFiles(torrentData.files || []);
 
-          if (imdbRes && imdbRes.ok) {
-            const imdbJson = await imdbRes.json();
-            if (imdbJson.success) {
-              setImdbData(imdbJson.imdb);
+        // 4. Merge the full detailed API response over the pre-fetched summary
+        if (imdbRes && imdbRes.ok) {
+          const imdbJson = await imdbRes.json();
+          if (imdbJson.success && imdbJson.imdb) {
+            // Prevent bad fallback data from overwriting good pre-fetched data
+            if (imdbJson.imdb.success === false && passedTmdbData) {
+              console.log('🎬 [TorrentPage] Backend returned fallback data. Keeping pre-fetched TMDB data.');
+            } else {
+              setImdbData(prev => ({ ...prev, ...imdbJson.imdb }));
               if (imdbJson.imdb.Poster) {
                 torrentHistoryService.updatePoster(torrentHash, imdbJson.imdb.Poster);
               }
@@ -351,7 +346,7 @@ const TorrentPageNetflix = () => {
                     <div className="netflix-episode-thumbnail">
                       {imdbData?.Backdrop ? (
                         <img src={imdbData.Backdrop} alt="Thumbnail" />
-                      ) : imdbData.Poster ? (
+                      ) : imdbData?.Poster ? (
                         <img src={imdbData.Poster} alt="Thumbnail" />
                       ) : (
                         <div style={{ width: '100%', height: '100%', background: '#333' }}></div>

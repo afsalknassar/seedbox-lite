@@ -28,6 +28,7 @@ const VideoPlayer = ({
   const [showControls, setShowControls] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
+  const [objectFit, setObjectFit] = useState('contain');
 
   // Scrubbing & Touch Gestures
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -69,6 +70,7 @@ const VideoPlayer = ({
   const lastTimeUpdateRef = useRef(0);
   const progressSaveTimerRef = useRef(Date.now());
   const controlsTimeoutRef = useRef(null);
+  const indicatorTimeoutRef = useRef(null);
 
   // ==========================================
   // ROBUST BUFFERING REASON DIAGNOSTICS
@@ -674,7 +676,22 @@ const VideoPlayer = ({
         console.log('Orientation unlock error:', e);
       }
       setIsFullscreen(false);
+      setObjectFit('contain');
     }
+  };
+
+  const cycleObjectFit = () => {
+    setObjectFit(prev => {
+      let nextFit, label;
+      if (prev === 'contain') { nextFit = 'fill'; label = 'Stretch'; }
+      else if (prev === 'fill') { nextFit = 'cover'; label = 'Crop Fit'; }
+      else { nextFit = 'contain'; label = 'Fit to Screen'; }
+      
+      setSwipeIndicator(label);
+      clearTimeout(indicatorTimeoutRef.current);
+      indicatorTimeoutRef.current = setTimeout(() => setSwipeIndicator(null), 1500);
+      return nextFit;
+    });
   };
 
   const formatTime = (time) => {
@@ -705,6 +722,7 @@ const VideoPlayer = ({
         ref={videoRef}
         src={src}
         className="video-element"
+        style={{ objectFit }}
         onDoubleClick={toggleFullscreen}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -979,7 +997,7 @@ const VideoPlayer = ({
                     <div className="vlc-buttons-container">
                       {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
                       <a
-                        href={`vlc://${config.apiBaseUrl.replace(/^https?:\/\//, '')}/api/torrents/${torrentHash}/files/${fileIndex}`}
+                       href={new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`, window.location.origin).href.replace(/^https?:\/\//i, 'vlc://')}
                         className="settings-option vlc-direct-btn"
                         title="Open directly in VLC (requires vlc:// protocol handler)"
                         onClick={(e) => { e.stopPropagation(); }}
@@ -999,7 +1017,7 @@ const VideoPlayer = ({
                         className="settings-option vlc-playlist-btn"
                         title="Copy stream link to clipboard"
                         onClick={() => {
-                          const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`;
+                          const url = new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`, window.location.origin).href;
                           navigator.clipboard.writeText(url).then(() => {
                             alert('Stream link copied to clipboard!');
                           }).catch(err => {
@@ -1026,7 +1044,20 @@ const VideoPlayer = ({
             </div>
 
             <a href={src} download className="control-button " title="Download"><Download size={18} /></a>
-            <button onClick={toggleFullscreen} className="control-button"><Maximize size={18} /></button>
+            {isFullscreen ? (
+              <>
+                <button onClick={cycleObjectFit} className="control-button" title="Aspect Ratio">
+                  <Maximize size={18} />
+                </button>
+                <button onClick={toggleFullscreen} className="control-button" title="Exit Fullscreen">
+                  <Minimize2 size={18} />
+                </button>
+              </>
+            ) : (
+              <button onClick={toggleFullscreen} className="control-button" title="Fullscreen">
+                <Maximize size={18} />
+              </button>
+            )}
           </div>
         </div>
       </div >

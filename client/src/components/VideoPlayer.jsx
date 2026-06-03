@@ -997,9 +997,11 @@ const VideoPlayer = ({
                     <div className="vlc-buttons-container">
                       {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
                       <a
-                       href={new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`, window.location.origin).href.replace(/^https?:\/\//i, 'vlc://')}
+                        href={new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}/stream`, window.location.origin).href}
                         className="settings-option vlc-direct-btn"
-                        title="Open directly in VLC (requires vlc:// protocol handler)"
+                        title="Open directly in external player"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         onClick={(e) => { e.stopPropagation(); }}
                       >
                         {/* Inline VLC traffic-cone SVG — no image load */}
@@ -1017,7 +1019,7 @@ const VideoPlayer = ({
                         className="settings-option vlc-playlist-btn"
                         title="Copy stream link to clipboard"
                         onClick={() => {
-                          const url = new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`, window.location.origin).href;
+                          const url = new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}/stream`, window.location.origin).href;
                           navigator.clipboard.writeText(url).then(() => {
                             alert('Stream link copied to clipboard!');
                           }).catch(err => {

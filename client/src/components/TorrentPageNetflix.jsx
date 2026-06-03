@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Play, Download, Star, Calendar, Clock, Info, FileText } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { config } from '../config/environment';
@@ -15,6 +15,8 @@ const TorrentPageNetflix = () => {
 
   console.log(torrentHash);
   const navigate = useNavigate();
+  const location = useLocation();
+  const passedTmdbData = location.state?.tmdbData || null;
 
   const [torrent, setTorrent] = useState(null);
   const [files, setFiles] = useState([]);
@@ -44,31 +46,41 @@ const TorrentPageNetflix = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch IMDB and Torrent Details in parallel for speed
-        const [imdbRes, torrentRes] = await Promise.all([
-          fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}/imdb`, { signal }).catch(() => null),
-          fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`, { signal })
-        ]);
+        // If we already have TMDB data from DetailPage, skip the /imdb API call
+        if (passedTmdbData) {
+          console.log('🎬 [TorrentPage] Using pre-fetched TMDB data, skipping /imdb API call');
+          setImdbData(passedTmdbData);
+          if (passedTmdbData.Poster) {
+            torrentHistoryService.updatePoster(torrentHash, passedTmdbData.Poster);
+          }
 
-        if (!torrentRes.ok) throw new Error('Failed to fetch torrent data');
+          const torrentRes = await fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`, { signal });
+          if (!torrentRes.ok) throw new Error('Failed to fetch torrent data');
+          const torrentData = await torrentRes.json();
+          setTorrent(torrentData.torrent);
+          setFiles(torrentData.files || []);
+        } else {
+          // Fallback: Fetch IMDB and Torrent Details in parallel
+          const [imdbRes, torrentRes] = await Promise.all([
+            fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}/imdb`, { signal }).catch(() => null),
+            fetch(`${config.apiBaseUrl}/api/torrents/${torrentHash}`, { signal })
+          ]);
 
-        const torrentData = await torrentRes.json();
-        setTorrent(torrentData.torrent);
-        setFiles(torrentData.files || []);
+          if (!torrentRes.ok) throw new Error('Failed to fetch torrent data');
 
-        if (imdbRes && imdbRes.ok) {
-          const imdbJson = await imdbRes.json();
-          if (imdbJson.success)
-            {
+          const torrentData = await torrentRes.json();
+          setTorrent(torrentData.torrent);
+          setFiles(torrentData.files || []);
+
+          if (imdbRes && imdbRes.ok) {
+            const imdbJson = await imdbRes.json();
+            if (imdbJson.success) {
               setImdbData(imdbJson.imdb);
-              // SAVE THE POSTER TO LOCAL STORAGE
               if (imdbJson.imdb.Poster) {
-                // Assuming torrentHash is the infoHash in this context
                 torrentHistoryService.updatePoster(torrentHash, imdbJson.imdb.Poster);
               }
             }
-
-
+          }
         }
 
         // Load local progress history

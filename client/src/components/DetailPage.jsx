@@ -258,7 +258,7 @@ export default function DetailPage({ item: propItem, onBack }) {
                 } else {
                     torrentHistoryService.addTorrent({ infoHash: data.infoHash, name: data.name || title, source: "magnet", originalInput: torrentId, size: data.size || 0 });
                 }
-                navigate(`/torrent/${data.infoHash}`);
+                navigate(`/torrent/${data.infoHash}`, { state: {tmdbData } });
             } else {
                 alert("Failed to add torrent: " + (data.error || "Unknown error"));
             }

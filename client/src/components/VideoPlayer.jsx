@@ -28,6 +28,7 @@ const VideoPlayer = ({
   const [showControls, setShowControls] = useState(true);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
+  const [objectFit, setObjectFit] = useState('contain');
 
   // Scrubbing & Touch Gestures
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -40,6 +41,8 @@ const VideoPlayer = ({
   const [networkStatus, setNetworkStatus] = useState('connecting');
   const [showTorrentStats, setShowTorrentStats] = useState(false);
   const [bufferHealth, setBufferHealth] = useState(0);
+  const [requiredSpeed, setRequiredSpeed] = useState(0);
+  const [clientSpeed, setClientSpeed] = useState(0);
   const [bufferedPercent, setBufferedPercent] = useState(0);
   const [bufferRanges, setBufferRanges] = useState([]);
 
@@ -69,6 +72,9 @@ const VideoPlayer = ({
   const lastTimeUpdateRef = useRef(0);
   const progressSaveTimerRef = useRef(Date.now());
   const controlsTimeoutRef = useRef(null);
+  const indicatorTimeoutRef = useRef(null);
+  const requiredSpeedRef = useRef(0);
+  const clientSpeedHistRef = useRef([]);
 
   // ==========================================
   // ROBUST BUFFERING REASON DIAGNOSTICS
@@ -288,15 +294,21 @@ const VideoPlayer = ({
           setNetworkStatus(stats.peers > 0 ? 'connected' : 'seeking');
 
           // Calculate Buffer Health using actual video bitrate
-          if (videoRef.current && stats.downloadSpeed > 0) {
+          if (videoRef.current) {
             const videoDur = videoRef.current.duration;
             const fileSize = stats.size || 0;
             // Estimate actual bitrate from file size and duration (bytes/sec)
             const actualBitrate = (fileSize > 0 && videoDur > 0)
               ? (fileSize / videoDur) * videoRef.current.playbackRate
               : videoRef.current.playbackRate * 1024 * 1024; // Fallback: 1MB/s
-            const health = Math.min(100, (stats.downloadSpeed / actualBitrate) * 100);
-            setBufferHealth(health);
+            
+            setRequiredSpeed(actualBitrate);
+            requiredSpeedRef.current = actualBitrate;
+
+            if (stats.downloadSpeed > 0) {
+              const health = Math.min(100, (stats.downloadSpeed / actualBitrate) * 100);
+              setBufferHealth(health);
+            }
           }
         }
       } catch (error) {
@@ -327,6 +339,26 @@ const VideoPlayer = ({
       }
       setBufferRanges(ranges);
       setBufferedPercent((maxEnd / video.duration) * 100);
+
+      // Client Speed Calculation
+      const now = Date.now();
+      const hist = clientSpeedHistRef.current;
+      hist.push({ time: now, maxEnd });
+      
+      // Cleanup old history > 5 seconds
+      while (hist.length > 0 && now - hist[0].time > 5000) {
+        hist.shift();
+      }
+
+      if (hist.length > 1) {
+        const oldest = hist[0];
+        const elapsedSec = (now - oldest.time) / 1000;
+        if (elapsedSec > 0) {
+          const bufferedSeconds = Math.max(0, maxEnd - oldest.maxEnd);
+          const speedBytes = (bufferedSeconds / elapsedSec) * (requiredSpeedRef.current || 0);
+          setClientSpeed(speedBytes);
+        }
+      }
     }
   }, []);
 
@@ -381,6 +413,7 @@ const VideoPlayer = ({
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('progress', updateBufferedProgress);
 
     // ✅ NEW: Wait for the browser to say it has enough data to show a frame
     video.addEventListener('canplay', () => setIsLoading(false));
@@ -395,6 +428,7 @@ const VideoPlayer = ({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('progress', updateBufferedProgress);
       video.removeEventListener('canplay', () => setIsLoading(false));
       video.removeEventListener('waiting', () => setIsLoading(true));
       video.removeEventListener('playing', () => { setIsLoading(false); setIsPlaying(true); });
@@ -674,7 +708,22 @@ const VideoPlayer = ({
         console.log('Orientation unlock error:', e);
       }
       setIsFullscreen(false);
+      setObjectFit('contain');
     }
+  };
+
+  const cycleObjectFit = () => {
+    setObjectFit(prev => {
+      let nextFit, label;
+      if (prev === 'contain') { nextFit = 'fill'; label = 'Stretch'; }
+      else if (prev === 'fill') { nextFit = 'cover'; label = 'Crop Fit'; }
+      else { nextFit = 'contain'; label = 'Fit to Screen'; }
+      
+      setSwipeIndicator(label);
+      clearTimeout(indicatorTimeoutRef.current);
+      indicatorTimeoutRef.current = setTimeout(() => setSwipeIndicator(null), 1500);
+      return nextFit;
+    });
   };
 
   const formatTime = (time) => {
@@ -705,6 +754,7 @@ const VideoPlayer = ({
         ref={videoRef}
         src={src}
         className="video-element"
+        style={{ objectFit }}
         onDoubleClick={toggleFullscreen}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -767,14 +817,64 @@ const VideoPlayer = ({
               <Users size={14} />
               <span>{torrentStats.peers} Peers</span>
             </div>
-            <div className="centered-stat-pill">
+            <div className="centered-stat-pill" title="Server Download from Peers">
               <TrendingDown size={14} />
-              <span>{(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} M/s</span>
+              <span>{(torrentStats.downloadSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
             </div>
-            <div className="centered-stat-pill">
+            <div className="centered-stat-pill" title="Server Upload to Peers">
               <TrendingUp size={14} />
-              <span>{(torrentStats.uploadSpeed / 1024 / 1024).toFixed(1)} M/s</span>
+              <span>{(torrentStats.uploadSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
             </div>
+          </div>
+
+          <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '12px' }}>
+            <div style={{ textAlign: 'center', fontSize: '10px', color: '#a1a1aa', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>
+              Smooth Playback Indicators
+            </div>
+            <div className="centered-stats-row">
+               <div className="centered-stat-pill" style={{ background: 'rgba(59, 130, 246, 0.15)' }} title="Your current download speed from the server">
+                 <Activity size={14} color="#60a5fa" />
+                 <span style={{ color: '#93c5fd' }}>{(clientSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
+                 <span style={{ fontSize: '9px', opacity: 0.8, marginTop: '-4px' }}>Your Speed</span>
+               </div>
+               <div className="centered-stat-pill" style={{ background: 'rgba(234, 179, 8, 0.15)' }} title="Minimum speed needed for smooth playback">
+                 <Activity size={14} color="#facc15" />
+                 <span style={{ color: '#fde047' }}>{(requiredSpeed / 1024 / 1024).toFixed(1)} MB/s</span>
+                 <span style={{ fontSize: '9px', opacity: 0.8, marginTop: '-4px' }}>Min. Required</span>
+               </div>
+            </div>
+            {/* Plain-English Verdict */}
+            {(() => {
+              const serverOk = torrentStats.peers > 0 && torrentStats.downloadSpeed > (requiredSpeed * 0.8);
+              const clientOk = clientSpeed === 0 || clientSpeed >= requiredSpeed * 0.9;
+              const warmingUp = requiredSpeed === 0 || clientSpeed === 0;
+
+              if (warmingUp) return (
+                <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', textAlign: 'center', fontSize: '11px', color: '#a1a1aa' }}>
+                  ⏳ Measuring your connection speed...
+                </div>
+              );
+              if (!serverOk && !clientOk) return (
+                <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', textAlign: 'center', fontSize: '11px', color: '#fca5a5' }}>
+                  ⚠️ Both server peers and your connection are slow
+                </div>
+              );
+              if (!clientOk) return (
+                <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', textAlign: 'center', fontSize: '11px', color: '#fca5a5' }}>
+                  📶 Your internet is too slow for smooth playback
+                </div>
+              );
+              if (!serverOk) return (
+                <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', textAlign: 'center', fontSize: '11px', color: '#fde68a' }}>
+                  🌐 Server is still fetching — your connection is fine
+                </div>
+              );
+              return (
+                <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '8px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', textAlign: 'center', fontSize: '11px', color: '#86efac' }}>
+                  ✅ Your connection is fast enough for smooth playback
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -979,7 +1079,7 @@ const VideoPlayer = ({
                     <div className="vlc-buttons-container">
                       {/* Primary: vlc:// URI — opens VLC directly, no download needed */}
                       <a
-                        href={`vlc://${config.apiBaseUrl.replace(/^https?:\/\//, '')}/api/torrents/${torrentHash}/files/${fileIndex}`}
+                        href={new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`, window.location.origin).href.replace(/^https?:\/\//i, 'vlc://')}
                         className="settings-option vlc-direct-btn"
                         title="Open directly in VLC (requires vlc:// protocol handler)"
                         onClick={(e) => { e.stopPropagation(); }}
@@ -999,7 +1099,7 @@ const VideoPlayer = ({
                         className="settings-option vlc-playlist-btn"
                         title="Copy stream link to clipboard"
                         onClick={() => {
-                          const url = `${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`;
+                          const url = new URL(`${config.apiBaseUrl}/api/torrents/${torrentHash}/files/${fileIndex}`, window.location.origin).href;
                           navigator.clipboard.writeText(url).then(() => {
                             alert('Stream link copied to clipboard!');
                           }).catch(err => {
@@ -1026,7 +1126,20 @@ const VideoPlayer = ({
             </div>
 
             <a href={src} download className="control-button " title="Download"><Download size={18} /></a>
-            <button onClick={toggleFullscreen} className="control-button"><Maximize size={18} /></button>
+            {isFullscreen ? (
+              <>
+                <button onClick={cycleObjectFit} className="control-button" title="Aspect Ratio">
+                  <Maximize size={18} />
+                </button>
+                <button onClick={toggleFullscreen} className="control-button" title="Exit Fullscreen">
+                  <Minimize2 size={18} />
+                </button>
+              </>
+            ) : (
+              <button onClick={toggleFullscreen} className="control-button" title="Fullscreen">
+                <Maximize size={18} />
+              </button>
+            )}
           </div>
         </div>
       </div >

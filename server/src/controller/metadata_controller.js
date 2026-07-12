@@ -179,6 +179,26 @@ async function fetchIMDBData(torrentName) {
   return fallbackResult;
 }
 
+/**
+ * Fetch movie or TV show title using an IMDB ID via TMDB API
+ */
+async function fetchTitleByIMDBId(imdbId) {
+  const tmdbKey = process.env.TMDB_API_KEY;
+  if (!tmdbKey) return null;
+
+  try {
+    const url = `https://api.themoviedb.org/3/find/${imdbId}?api_key=${tmdbKey}&external_source=imdb_id`;
+    const res = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'SeedboxLite/1.0' } }, 5000);
+    
+    if (res.movie_results?.length > 0) return res.movie_results[0].title;
+    if (res.tv_results?.length > 0) return res.tv_results[0].name;
+    return null;
+  } catch (err) {
+    console.error(`❌ [IMDB FETCH] Failed to fetch title for IMDB ID ${imdbId}:`, err.message);
+    return null;
+  }
+}
+
 // ============================================================================
 // TORRENT STATS ENDPOINT
 // ============================================================================
@@ -356,5 +376,6 @@ const getIMDBData = async (req, res) => {
 module.exports = {
   getTorrentStats,
   getIMDBData,
-  fetchIMDBData
+  fetchIMDBData,
+  fetchTitleByIMDBId
 };

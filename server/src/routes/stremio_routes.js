@@ -22,8 +22,8 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const { client } = require('../torrent_client');
-const { universalTorrentResolver } = require('../utils/torrent_utils');
-const { fetchIMDBData } = require('../controller/metadata_controller');
+const { universalTorrentResolver, loadTorrentFromId } = require('../utils/torrent_utils');
+const { fetchIMDBData, fetchTitleByIMDBId } = require('../controller/metadata_controller');
 
 // ============================================================================
 // CONSTANTS & HELPERS
@@ -349,6 +349,40 @@ router.get('/:token/stream/:type/:id.json', validateToken, async (req, res) => {
     }
 
     if (!torrent) {
+      if (stremioId.startsWith('tt')) {
+        const imdbId = stremioId.split(':')[0];
+        try {
+          const title = await fetchTitleByIMDBId(imdbId);
+          if (title) {
+            const proxyUrl = `https://rich-clownfish-18.epaperhubdaily.deno.net/api/v1/search?q=${encodeURIComponent(title)}&availability=all`;
+            const proxyRes = await fetch(proxyUrl, { headers: { Authorization: "Bearer tc_cc07d834fe3a9fb54d4343e379eec4d8c74f898c9d6048c1", Accept: "application/json" } });
+            if (proxyRes.ok) {
+              const proxyData = await proxyRes.json();
+              let matches = (proxyData.results || []).filter(r => r.imdb_code === imdbId || r.imdbId === imdbId || r.title === title || r.name === title);
+              if (matches.length === 0 && proxyData.results?.[0]) matches.push(proxyData.results[0]);
+              
+              const allTorrents = [];
+              matches.forEach(m => { if (m.torrents) allTorrents.push(...m.torrents); });
+              
+              if (allTorrents.length > 0) {
+                const streams = allTorrents.map(t => {
+                  const hashOrUrl = t.magnetUrl || t.infoHash; // magnet is better for auto-add
+                  return {
+                    url: `${baseUrl}/stremio/${req.params.token}/auto-add/${encodeURIComponent(hashOrUrl)}`,
+                    name: ADDON_NAME + '\n(External)',
+                    title: `▶ Download & Stream\nQuality: ${t.quality || 'Unknown'} | Size: ${formatBytes(t.sizeBytes)} | Seeders: ${t.seeders || 0}`,
+                    behaviorHints: { notWebReady: false }
+                  };
+                });
+                console.log(`✅ [STREMIO] Returning ${streams.length} external stream(s) for: ${title}`);
+                return res.json({ streams });
+              }
+            }
+          }
+        } catch (searchErr) {
+          console.error(`❌ [STREMIO] External search error:`, searchErr.message);
+        }
+      }
       return res.json({ streams: [] });
     }
 
@@ -387,6 +421,53 @@ router.get('/:token/stream/:type/:id.json', validateToken, async (req, res) => {
   } catch (err) {
     console.error(`❌ [STREMIO] Stream error:`, err.message);
     res.json({ streams: [] });
+  }
+});
+
+// ============================================================================
+// AUTO-ADD ENDPOINT
+// ============================================================================
+
+/**
+ * GET /stremio/:token/auto-add/:infoHash
+ * Automatically adds a torrent to the seedbox, waits for metadata, and redirects to the stream
+ */
+router.get('/:token/auto-add/:id', validateToken, async (req, res) => {
+  const { id } = req.params;
+  const baseUrl = getBaseUrl(req);
+
+  console.log(`🎬 [STREMIO] Auto-add requested for: ${id}`);
+
+  try {
+    const newTorrent = await loadTorrentFromId(id);
+    const infoHash = newTorrent.infoHash;
+
+    const waitForReadyAndRedirect = () => {
+      // Find largest video file
+      const videoFiles = (newTorrent.files || [])
+        .map((file, idx) => ({ file, idx }))
+        .filter(({ file }) => isVideoFile(file.name));
+
+      if (videoFiles.length === 0) {
+        return res.status(404).send('No streamable video files found in torrent.');
+      }
+
+      videoFiles.sort((a, b) => b.file.length - a.file.length);
+      const largestFileIdx = videoFiles[0].idx;
+
+      const streamUrl = `${baseUrl}/api/torrents/${infoHash}/files/${largestFileIdx}/stream`;
+      console.log(`🎬 [STREMIO] Redirecting to stream: ${streamUrl}`);
+      res.redirect(302, streamUrl);
+    };
+
+    if (newTorrent.ready || newTorrent.metadata) {
+      waitForReadyAndRedirect();
+    } else {
+      newTorrent.once('metadata', waitForReadyAndRedirect);
+    }
+  } catch (err) {
+    console.error(`❌ [STREMIO] Auto-add error:`, err.message);
+    res.status(500).send('Failed to add torrent.');
   }
 });
 

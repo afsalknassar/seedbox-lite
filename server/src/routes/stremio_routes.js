@@ -162,7 +162,7 @@ router.get('/:token/manifest.json', validateToken, (req, res) => {
       }
     ],
 
-    idPrefixes: ['tt', 'seedbox:'],
+    idPrefixes: ['seedbox:'],
 
     behaviorHints: {
       adult:              false,
@@ -203,7 +203,7 @@ router.get('/:token/catalog/other/seedbox-active.json', validateToken, async (re
       const imdbId = imdbData && imdbData.imdbID ? imdbData.imdbID : null;
 
       return {
-        id:          imdbId ? imdbId : `seedbox:${torrent.infoHash}`,
+        id:          `seedbox:${torrent.infoHash}`,
         type:        (imdbData && imdbData.Type === 'series') ? 'series' : (imdbId ? 'movie' : 'other'),
         name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || torrent.infoHash),
         poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,
@@ -234,12 +234,12 @@ router.get('/:token/catalog/other/seedbox-active.json', validateToken, async (re
 // ============================================================================
 
 /**
- * GET /stremio/:token/meta/other/:id.json
+ * GET /stremio/:token/meta/:type/:id.json
  * Returns rich metadata for a specific torrent (identified by seedbox:{infoHash}).
  */
-router.get('/:token/meta/other/:id.json', validateToken, async (req, res) => {
-  const stremioId = req.params.id;
-  console.log(`🎬 [STREMIO] Meta requested for: ${stremioId}`);
+router.get('/:token/meta/:type/:id.json', validateToken, async (req, res) => {
+  const { type, id: stremioId } = req.params;
+  console.log(`🎬 [STREMIO] Meta requested for: ${stremioId} (type: ${type})`);
 
   try {
     if (!stremioId.startsWith('seedbox:')) {
@@ -273,7 +273,7 @@ router.get('/:token/meta/other/:id.json', validateToken, async (req, res) => {
 
     const meta = {
       id:          stremioId,
-      type:        'other',
+      type:        type,
       name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || infoHash),
       poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,
       posterShape: (imdbData && imdbData.Poster) ? 'regular' : 'landscape',

@@ -23,6 +23,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const { client } = require('../torrent_client');
 const { universalTorrentResolver } = require('../utils/torrent_utils');
+const { fetchIMDBData } = require('../controller/metadata_controller');
 
 // ============================================================================
 // CONSTANTS & HELPERS
@@ -190,31 +191,34 @@ router.get('/:token/catalog/other/seedbox-active.json', validateToken, async (re
     const limit = 100;
 
     const activeTorrents = client.torrents || [];
+    const sliced = activeTorrents.slice(skip, skip + limit);
 
-    const metas = activeTorrents
-      .slice(skip, skip + limit)
-      .map(torrent => {
-        const videoFiles = (torrent.files || []).filter(f => isVideoFile(f.name));
-        const totalSize  = torrent.length || 0;
-        const progress   = torrent.progress || 0;
+    const metas = await Promise.all(sliced.map(async (torrent) => {
+      const videoFiles = (torrent.files || []).filter(f => isVideoFile(f.name));
+      const totalSize  = torrent.length || 0;
+      const progress   = torrent.progress || 0;
+      
+      const imdbData = await fetchIMDBData(torrent.name).catch(() => null);
 
-        return {
-          id:          `seedbox:${torrent.infoHash}`,
-          type:        'other',
-          name:        torrent.name || torrent.infoHash,
-          poster:      null,
-          posterShape: 'landscape',
-          background:  null,
-          description: [
-            `📦 Size: ${formatBytes(totalSize)}`,
-            `⬇️ Progress: ${formatProgress(progress)}`,
-            `🎬 Video files: ${videoFiles.length}`,
-            `📡 Peers: ${torrent.numPeers || 0}`
-          ].join('\n'),
-          releaseInfo: new Date().getFullYear().toString(),
-          imdbRating:  (progress * 10).toFixed(1),
-        };
-      });
+      return {
+        id:          `seedbox:${torrent.infoHash}`,
+        type:        (imdbData && imdbData.Type === 'series') ? 'series' : 'movie',
+        name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || torrent.infoHash),
+        poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,
+        posterShape: (imdbData && imdbData.Poster) ? 'regular' : 'landscape',
+        background:  (imdbData && imdbData.Backdrop) ? imdbData.Backdrop : null,
+        description: [
+          (imdbData && imdbData.Plot) ? `${imdbData.Plot}\n` : '',
+          `📦 Size: ${formatBytes(totalSize)}`,
+          `⬇️ Progress: ${formatProgress(progress)}`,
+          `🎬 Video files: ${videoFiles.length}`,
+          `📡 Peers: ${torrent.numPeers || 0}`
+        ].join('\n').trim(),
+        releaseInfo: (imdbData && imdbData.Year) ? imdbData.Year.toString() : new Date().getFullYear().toString(),
+        imdbRating:  (imdbData && imdbData.imdbRating) ? imdbData.imdbRating.toString() : (progress * 10).toFixed(1),
+        genres:      (imdbData && imdbData.Genre) ? imdbData.Genre.split(', ') : []
+      };
+    }));
 
     res.json({ metas });
   } catch (err) {
@@ -263,18 +267,29 @@ router.get('/:token/meta/other/:id.json', validateToken, async (req, res) => {
       };
     });
 
+    const imdbData = await fetchIMDBData(torrent.name).catch(() => null);
+
     const meta = {
       id:          stremioId,
-      type:        'other',
-      name:        torrent.name || infoHash,
+      type:        (imdbData && imdbData.Type === 'series') ? 'series' : 'movie',
+      name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || infoHash),
+      poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,
+      posterShape: (imdbData && imdbData.Poster) ? 'regular' : 'landscape',
+      background:  (imdbData && imdbData.Backdrop) ? imdbData.Backdrop : null,
       description: [
+        (imdbData && imdbData.Plot) ? `${imdbData.Plot}\n` : '',
         `📦 Total Size: ${formatBytes(totalSize)}`,
         `⬇️ Progress: ${formatProgress(progress)}`,
         `🎬 Video files: ${videoFiles.length}`,
         `📡 Active Peers: ${torrent.numPeers || 0}`,
         `🔑 InfoHash: ${torrent.infoHash}`
-      ].join('\n'),
-      releaseInfo: new Date().getFullYear().toString(),
+      ].join('\n').trim(),
+      releaseInfo: (imdbData && imdbData.Year) ? imdbData.Year.toString() : new Date().getFullYear().toString(),
+      imdbRating:  (imdbData && imdbData.imdbRating) ? imdbData.imdbRating.toString() : null,
+      genres:      (imdbData && imdbData.Genre) ? imdbData.Genre.split(', ') : [],
+      director:    (imdbData && imdbData.Director && imdbData.Director !== 'N/A') ? imdbData.Director.split(', ') : [],
+      cast:        (imdbData && imdbData.Actors && imdbData.Actors !== 'N/A') ? imdbData.Actors.split(', ') : [],
+      runtime:     (imdbData && imdbData.Runtime && imdbData.Runtime !== 'N/A') ? imdbData.Runtime : null,
       videos:      videos,
       trailers:    [],
       links:       [],

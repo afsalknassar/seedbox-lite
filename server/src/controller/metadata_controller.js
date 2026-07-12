@@ -355,5 +355,6 @@ const getIMDBData = async (req, res) => {
 
 module.exports = {
   getTorrentStats,
-  getIMDBData
+  getIMDBData,
+  fetchIMDBData
 };

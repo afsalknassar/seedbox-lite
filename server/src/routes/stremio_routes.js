@@ -50,16 +50,38 @@ function getAddonToken() {
 
 /**
  * Build the absolute base URL for stream links.
- * Prefers STREMIO_PUBLIC_URL env var, otherwise uses the request host.
+ *
+ * Priority order:
+ * 1. STREMIO_PUBLIC_URL env var  — explicit override (e.g. https://your-domain.com)
+ * 2. SPACE_HOST env var          — set automatically by Hugging Face Spaces
+ * 3. x-forwarded-host header     — set by most reverse proxies / cloud platforms
+ * 4. req.get('host')             — raw Host header (works for direct local access)
  */
 function getBaseUrl(req) {
+  // 1. Explicit override always wins
   if (process.env.STREMIO_PUBLIC_URL) {
     return process.env.STREMIO_PUBLIC_URL.replace(/\/$/, '');
   }
+
+  // 2. Hugging Face Spaces sets SPACE_HOST = "username-reponame.hf.space"
+  if (process.env.SPACE_HOST) {
+    return `https://${process.env.SPACE_HOST}`;
+  }
+
+  // 3. Standard reverse-proxy headers
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
   const host     = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+
+  // 4. Avoid returning 127.0.0.1 — that's never reachable externally
+  if (host.startsWith('127.0.0.1') || host.startsWith('localhost')) {
+    // Last resort: fall back to the request's origin if available
+    const origin = req.headers['origin'];
+    if (origin) return origin.replace(/\/$/, '');
+  }
+
   return `${protocol}://${host}`;
 }
+
 
 /**
  * Validate the token in the request matches our derived token.

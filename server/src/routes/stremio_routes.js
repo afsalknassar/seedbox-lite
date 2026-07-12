@@ -162,7 +162,7 @@ router.get('/:token/manifest.json', validateToken, (req, res) => {
       }
     ],
 
-    idPrefixes: ['seedbox:'],
+    idPrefixes: ['tt', 'seedbox:'],
 
     behaviorHints: {
       adult:              false,
@@ -203,7 +203,7 @@ router.get('/:token/catalog/other/seedbox-active.json', validateToken, async (re
       const imdbId = imdbData && imdbData.imdbID ? imdbData.imdbID : null;
 
       return {
-        id:          `seedbox:${torrent.infoHash}`,
+        id:          imdbId ? imdbId : `seedbox:${torrent.infoHash}`,
         type:        (imdbData && imdbData.Type === 'series') ? 'series' : (imdbId ? 'movie' : 'other'),
         name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || torrent.infoHash),
         poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,

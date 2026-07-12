@@ -150,7 +150,19 @@ router.get('/:token/manifest.json', validateToken, (req, res) => {
     description: ADDON_DESC,
     logo:        'https://i.imgur.com/HJ9OPsV.png',
 
-    resources: ['catalog', 'meta', 'stream'],
+    resources: [
+      'catalog',
+      {
+        name: 'meta',
+        types: ['movie', 'series', 'other'],
+        idPrefixes: ['tt', 'seedbox:']
+      },
+      {
+        name: 'stream',
+        types: ['movie', 'series', 'other'],
+        idPrefixes: ['tt', 'seedbox:']
+      }
+    ],
     types:     ['movie', 'series', 'other'],
 
     catalogs: [
@@ -242,15 +254,21 @@ router.get('/:token/meta/:type/:id.json', validateToken, async (req, res) => {
   console.log(`🎬 [STREMIO] Meta requested for: ${stremioId} (type: ${type})`);
 
   try {
+    if (stremioId.startsWith('tt')) {
+      console.log(`🎬 [STREMIO] Redirecting meta request to Cinemeta for: ${stremioId}`);
+      return res.redirect(302, `https://v3-cinemeta.strem.io/meta/${type}/${stremioId}.json`);
+    }
+
     if (!stremioId.startsWith('seedbox:')) {
-      return res.json({ meta: {} });
+      // Return 404 for any other unrecognized prefixes
+      return res.status(404).json({ err: "Not supported" });
     }
 
     const infoHash = stremioId.replace('seedbox:', '');
     const torrent  = await universalTorrentResolver(infoHash);
 
     if (!torrent) {
-      return res.json({ meta: {} });
+      return res.status(404).json({ err: "Torrent not found" });
     }
 
     const videoFiles = (torrent.files || []).filter(f => isVideoFile(f.name));
@@ -370,12 +388,18 @@ router.get('/:token/stream/:type/:id.json', validateToken, async (req, res) => {
             matches.forEach(m => { if (m.torrents) allTorrents.push(...m.torrents); });
             
             if (allTorrents.length > 0) {
+              // Order by seeders descending
+              allTorrents.sort((a, b) => (b.seeders || 0) - (a.seeders || 0));
+
               const streams = allTorrents.map(t => {
-                const hashOrUrl = t.magnetUrl || t.infoHash; // magnet is better for auto-add
+                const hashOrUrl = t.magnetUrl || t.infoHash;
+                const provider = (t.source || 'External').split(':')[0].toUpperCase();
+                const qualityStr = [t.quality, t.codec, t.sourceType, t.hdrType].filter(Boolean).join(' ');
+                
                 return {
                   url: `${baseUrl}/stremio/${req.params.token}/auto-add/${encodeURIComponent(hashOrUrl)}`,
-                  name: ADDON_NAME + '\n(External)',
-                  title: `▶ Download & Stream\nQuality: ${t.quality || 'Unknown'} | Size: ${formatBytes(t.sizeBytes)} | Seeders: ${t.seeders || 0}`,
+                  name: `Seedbox\n[${provider}]`,
+                  title: `${t.rawTitle || 'Unknown Torrent'}\n${qualityStr} | 📦 ${formatBytes(t.sizeBytes)} | ⬆️ ${t.seeders || 0} Seeders`,
                   behaviorHints: { notWebReady: false }
                 };
               });

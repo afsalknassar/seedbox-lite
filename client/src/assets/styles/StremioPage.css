@@ -1,512 +1,303 @@
-/* ============================================================================
-   STREMIO PAGE — Styles
-   ============================================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-.stremio-page {
-  font-family: 'Inter', system-ui, sans-serif;
-  min-height: 100vh;
-  background: #0d0d1a;
+.stremio-page-modern {
+  font-family: 'Outfit', system-ui, sans-serif;
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at top right, rgba(123, 94, 167, 0.15), transparent 50%),
+              radial-gradient(ellipse at bottom left, rgba(99, 179, 237, 0.1), transparent 50%),
+              #0B0C10;
+  padding: 2rem;
   color: #e2e8f0;
 }
 
-.stremio-hero {
-  position: relative;
+.stremio-glass-card {
+  background: rgba(20, 22, 30, 0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 500px;
   overflow: hidden;
-  padding: 48px 40px 40px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-.stremio-hero-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(123, 94, 167, 0.22) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 80% at 90% 100%, rgba(99, 179, 237, 0.08) 0%, transparent 70%);
-  pointer-events: none;
+@keyframes fadeUp {
+  0% { opacity: 0; transform: translateY(20px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.stremio-hero-content {
-  position: relative;
-  z-index: 1;
-  max-width: 960px;
+.stremio-card-header {
+  padding: 40px 32px 30px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(123, 94, 167, 0.08) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.stremio-hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  background: rgba(123, 94, 167, 0.2);
-  border: 1px solid rgba(123, 94, 167, 0.4);
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #b794e3;
+.stremio-card-header svg {
   margin-bottom: 20px;
+  filter: drop-shadow(0 10px 20px rgba(123, 94, 167, 0.4));
+  animation: float 6s ease-in-out infinite;
 }
 
-.stremio-hero-title {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  margin-bottom: 28px;
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
 }
 
-.stremio-hero-title h1 {
-  font-size: 2rem;
+.stremio-card-header h1 {
+  font-size: 1.5rem;
   font-weight: 700;
-  margin: 0 0 6px;
+  margin: 0 0 10px;
   background: linear-gradient(135deg, #fff 0%, #b794e3 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
-.stremio-hero-title p {
+.stremio-card-header p {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.85rem;
   color: #94a3b8;
-}
-
-.stremio-stats-row {
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.stremio-stat {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  font-size: 0.83rem;
-  color: #94a3b8;
-}
-
-.stremio-stat strong {
-  color: #e2e8f0;
-  font-weight: 600;
-}
-
-.stremio-body {
-  display: grid;
-  grid-template-columns: 400px 1fr;
-  gap: 24px;
-  padding: 28px 40px 40px;
-  max-width: 1200px;
-}
-
-@media (max-width: 900px) {
-  .stremio-body {
-    grid-template-columns: 1fr;
-    padding: 20px 16px;
-  }
-  .stremio-hero {
-    padding: 28px 16px 24px;
-  }
-  .stremio-hero-title h1 {
-    font-size: 1.4rem;
-  }
-}
-
-.stremio-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 20px;
-  transition: border-color 0.2s;
-}
-
-.stremio-card:hover {
-  border-color: rgba(123, 94, 167, 0.3);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  color: #b794e3;
-}
-
-.card-header h3 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin: 0;
-  color: #e2e8f0;
-  flex: 1;
-}
-
-.addon-url-card {
-  border-color: rgba(123, 94, 167, 0.25);
-}
-
-.url-block {
-  margin-bottom: 16px;
-}
-
-.url-block label {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #64748b;
-  margin-bottom: 8px;
-}
-
-.url-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 10px 14px;
-}
-
-.url-code {
-  flex: 1;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 0.76rem;
-  color: #7dd3fc;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.url-hint {
-  margin: 6px 0 0;
-  font-size: 0.76rem;
-  color: #475569;
-}
-
-.copy-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  background: rgba(123, 94, 167, 0.2);
-  border: 1px solid rgba(123, 94, 167, 0.4);
-  border-radius: 7px;
-  color: #b794e3;
-  font-size: 0.77rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.18s;
-  font-family: inherit;
-}
-
-.copy-btn:hover {
-  background: rgba(123, 94, 167, 0.35);
-  border-color: rgba(123, 94, 167, 0.7);
-}
-
-.copy-btn.copied {
-  background: rgba(52, 211, 153, 0.2);
-  border-color: rgba(52, 211, 153, 0.5);
-  color: #34d399;
-}
-
-.install-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  padding: 14px 20px;
-  background: linear-gradient(135deg, #7b5ea7 0%, #5a3e8a 100%);
-  border: none;
-  border-radius: 12px;
-  color: #fff;
-  font-size: 0.92rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  margin: 20px 0 16px;
-  transition: all 0.2s;
-  box-shadow: 0 4px 20px rgba(123, 94, 167, 0.35);
-}
-
-.install-btn:hover {
-  background: linear-gradient(135deg, #9070c0 0%, #7b5ea7 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 28px rgba(123, 94, 167, 0.5);
-}
-
-.token-info {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 14px;
-  background: rgba(251, 191, 36, 0.06);
-  border: 1px solid rgba(251, 191, 36, 0.18);
-  border-radius: 8px;
-  font-size: 0.77rem;
-  color: #a0855c;
   line-height: 1.5;
 }
 
-.token-info svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-  color: #fbbf24;
+.stremio-card-content {
+  padding: 32px;
 }
 
-.install-steps {
+.stremio-loading-state,
+.stremio-error-state {
   display: flex;
   flex-direction: column;
-  gap: 0;
-}
-
-.install-step {
-  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  text-align: center;
+  color: #94a3b8;
   gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.install-step:last-child {
-  border-bottom: none;
+.stremio-loading-state svg {
+  color: #8b5cf6;
 }
 
-.install-step-number {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(123, 94, 167, 0.5), rgba(123, 94, 167, 0.2));
-  border: 1px solid rgba(123, 94, 167, 0.5);
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.stremio-error-state {
+  color: #f87171;
+}
+
+.retry-btn {
+  margin-top: 10px;
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.retry-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
+.stremio-install-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stremio-install-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.78rem;
+  gap: 12px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  text-decoration: none;
+  padding: 14px 24px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stremio-install-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.stremio-install-btn:active {
+  transform: translateY(0);
+}
+
+.stremio-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #475569;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #b794e3;
+  letter-spacing: 0.1em;
+  margin: 10px 0;
+}
+
+.stremio-divider::before,
+.stremio-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.stremio-divider span {
+  padding: 0 12px;
+}
+
+.stremio-url-box {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 6px;
+  transition: border-color 0.2s;
+}
+
+.stremio-url-box:focus-within,
+.stremio-url-box:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.stremio-url-text {
+  flex: 1;
+  padding: 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stremio-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.stremio-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.stremio-copy-btn.copied {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.stremio-url-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: -8px 0 0;
+}
+
+.stremio-security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 16px;
+  background: rgba(234, 179, 8, 0.05);
+  border: 1px solid rgba(234, 179, 8, 0.1);
+  border-radius: 12px;
+  color: #eab308;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.stremio-security-note svg {
   flex-shrink: 0;
   margin-top: 2px;
 }
 
-.install-step-content h4 {
-  font-size: 0.86rem;
-  font-weight: 600;
-  margin: 0 0 4px;
-  color: #e2e8f0;
+@media (max-width: 480px) {
+  .stremio-page-modern {
+    padding: 1rem;
+    align-items: flex-start;
+  }
+  
+  .stremio-glass-card {
+    border-radius: 16px;
+  }
+  
+  .stremio-card-header {
+    padding: 24px 16px 16px;
+  }
+  
+  .stremio-card-header h1 {
+    font-size: 1.3rem;
+  }
+  
+  .stremio-card-header p {
+    font-size: 0.8rem;
+  }
+  
+  .stremio-card-content {
+    padding: 20px 16px;
+  }
+  
+  .stremio-url-box {
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  .stremio-url-text {
+    width: 100%;
+    text-align: center;
+    padding: 4px;
+  }
+  
+  .stremio-copy-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .stremio-install-btn {
+    padding: 14px;
+    font-size: 0.95rem;
+  }
+  
+  .stremio-security-note {
+    font-size: 0.75rem;
+    padding: 12px;
+  }
 }
 
-.install-step-content p {
-  font-size: 0.8rem;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.step-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: rgba(99, 179, 237, 0.07);
-  border: 1px solid rgba(99, 179, 237, 0.15);
-  border-radius: 7px;
-  font-size: 0.76rem;
-  color: #7db8e0;
-  line-height: 1.45;
-}
-
-.step-note svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.stremio-torrents-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-height: 440px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.stremio-torrents-grid::-webkit-scrollbar { width: 4px; }
-.stremio-torrents-grid::-webkit-scrollbar-track { background: transparent; }
-.stremio-torrents-grid::-webkit-scrollbar-thumb { background: rgba(123, 94, 167, 0.4); border-radius: 2px; }
-
-.stremio-torrent-card {
-  padding: 14px 16px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
-  transition: border-color 0.18s, background 0.18s;
-}
-
-.stremio-torrent-card.streamable { border-color: rgba(52, 211, 153, 0.2); }
-.stremio-torrent-card:hover { background: rgba(123, 94, 167, 0.07); border-color: rgba(123, 94, 167, 0.3); }
-
-.stremio-torrent-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.status-dot.green { background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.6); }
-.status-dot.grey { background: #475569; }
-
-.status-label { font-size: 0.72rem; color: #64748b; font-weight: 500; }
-.stremio-torrent-card.streamable .status-label { color: #34d399; }
-
-.stremio-torrent-name {
-  font-size: 0.84rem;
-  font-weight: 500;
-  color: #cbd5e1;
-  margin: 0 0 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.35;
-}
-
-.stremio-torrent-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.74rem;
-  color: #475569;
-  margin-bottom: 10px;
-}
-
-.stremio-torrent-meta .dot { color: #334155; }
-
-.stremio-progress-bar {
-  height: 3px;
-  background: rgba(255, 255, 255, 0.07);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 5px;
-}
-
-.stremio-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #7b5ea7, #b794e3);
-  border-radius: 2px;
-  transition: width 0.6s ease;
-}
-
-.stremio-torrent-card.streamable .stremio-progress-fill {
-  background: linear-gradient(90deg, #34d399, #6ee7b7);
-}
-
-.stremio-progress-label { font-size: 0.71rem; color: #475569; margin: 0; }
-
-.info-card { margin-top: 0; }
-
-.info-flow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
-}
-
-.flow-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  color: #64748b;
-  font-weight: 500;
-  text-align: center;
-}
-
-.flow-icon {
-  width: 42px;
-  height: 42px;
-  background: rgba(123, 94, 167, 0.12);
-  border: 1px solid rgba(123, 94, 167, 0.25);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #b794e3;
-}
-
-.flow-arrow { color: #334155; flex-shrink: 0; }
-
-.info-desc {
-  font-size: 0.81rem;
-  color: #64748b;
-  line-height: 1.6;
-  margin: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 16px;
-}
-
-.stremio-loading-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #475569;
-  font-size: 0.84rem;
-  padding: 12px 0;
-}
-
-.stremio-error {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #f87171;
-  font-size: 0.83rem;
-  padding: 12px;
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  border-radius: 8px;
-}
-
-.stremio-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 32px 16px;
-  gap: 10px;
-  color: #475569;
-  text-align: center;
-}
-
-.stremio-empty p { font-size: 0.92rem; font-weight: 600; color: #64748b; margin: 4px 0 0; }
-.stremio-empty span { font-size: 0.78rem; color: #475569; max-width: 280px; line-height: 1.5; }
-
-.refresh-btn {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 7px;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.18s;
-}
-
-.refresh-btn:hover { background: rgba(123, 94, 167, 0.2); border-color: rgba(123, 94, 167, 0.4); color: #b794e3; }
-
-.last-refresh { margin-top: 14px; font-size: 0.72rem; color: #334155; text-align: right; }
-
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.spin { animation: spin 1s linear infinite; }

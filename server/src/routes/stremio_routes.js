@@ -352,31 +352,35 @@ router.get('/:token/stream/:type/:id.json', validateToken, async (req, res) => {
       if (stremioId.startsWith('tt')) {
         const imdbId = stremioId.split(':')[0];
         try {
-          const title = await fetchTitleByIMDBId(imdbId);
-          if (title) {
-            const proxyUrl = `https://rich-clownfish-18.epaperhubdaily.deno.net/api/v1/search?q=${encodeURIComponent(title)}&availability=all`;
-            const proxyRes = await fetch(proxyUrl, { headers: { Authorization: "Bearer tc_cc07d834fe3a9fb54d4343e379eec4d8c74f898c9d6048c1", Accept: "application/json" } });
-            if (proxyRes.ok) {
-              const proxyData = await proxyRes.json();
-              let matches = (proxyData.results || []).filter(r => r.imdb_code === imdbId || r.imdbId === imdbId || r.title === title || r.name === title);
-              if (matches.length === 0 && proxyData.results?.[0]) matches.push(proxyData.results[0]);
-              
-              const allTorrents = [];
-              matches.forEach(m => { if (m.torrents) allTorrents.push(...m.torrents); });
-              
-              if (allTorrents.length > 0) {
-                const streams = allTorrents.map(t => {
-                  const hashOrUrl = t.magnetUrl || t.infoHash; // magnet is better for auto-add
-                  return {
-                    url: `${baseUrl}/stremio/${req.params.token}/auto-add/${encodeURIComponent(hashOrUrl)}`,
-                    name: ADDON_NAME + '\n(External)',
-                    title: `▶ Download & Stream\nQuality: ${t.quality || 'Unknown'} | Size: ${formatBytes(t.sizeBytes)} | Seeders: ${t.seeders || 0}`,
-                    behaviorHints: { notWebReady: false }
-                  };
-                });
-                console.log(`✅ [STREMIO] Returning ${streams.length} external stream(s) for: ${title}`);
-                return res.json({ streams });
-              }
+          const proxyUrl = `https://rich-clownfish-18.epaperhubdaily.deno.net/api/v1/search?q=${imdbId}&availability=all`;
+          const proxyRes = await fetch(proxyUrl, { 
+            headers: { 
+              Authorization: "Bearer tc_cc07d834fe3a9fb54d4343e379eec4d8c74f898c9d6048c1", 
+              Accept: "application/json",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            } 
+          });
+          
+          if (proxyRes.ok) {
+            const proxyData = await proxyRes.json();
+            let matches = (proxyData.results || []).filter(r => r.imdb_code === imdbId || r.imdbId === imdbId);
+            if (matches.length === 0 && proxyData.results?.[0]) matches.push(proxyData.results[0]);
+            
+            const allTorrents = [];
+            matches.forEach(m => { if (m.torrents) allTorrents.push(...m.torrents); });
+            
+            if (allTorrents.length > 0) {
+              const streams = allTorrents.map(t => {
+                const hashOrUrl = t.magnetUrl || t.infoHash; // magnet is better for auto-add
+                return {
+                  url: `${baseUrl}/stremio/${req.params.token}/auto-add/${encodeURIComponent(hashOrUrl)}`,
+                  name: ADDON_NAME + '\n(External)',
+                  title: `▶ Download & Stream\nQuality: ${t.quality || 'Unknown'} | Size: ${formatBytes(t.sizeBytes)} | Seeders: ${t.seeders || 0}`,
+                  behaviorHints: { notWebReady: false }
+                };
+              });
+              console.log(`✅ [STREMIO] Returning ${streams.length} external stream(s) for: ${imdbId}`);
+              return res.json({ streams });
             }
           }
         } catch (searchErr) {

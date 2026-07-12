@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search, Folder, LogOut, Rss, Magnet, } from 'lucide-react';
+import { Home, Clock, Settings, Leaf, Menu, X, HardDrive, Search, Folder, LogOut, Rss, Magnet, Tv2 } from 'lucide-react';
 import { config } from '../config/environment';
 import { useAuth } from '../context/AuthContext';
 import '../assets/styles/Layout.css';
@@ -21,7 +21,7 @@ const Layout = () => {
     { path: '/torrent-home', icon: Magnet, label: 'Explore' },
     { path: '/files', icon: Folder, label: 'Files' },
     { path: '/rss', icon: Rss, label: 'RSS Feed' },
-
+    { path: '/stremio', icon: Tv2, label: 'Stremio' },
   ];
 
   useEffect(() => {

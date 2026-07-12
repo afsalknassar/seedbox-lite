@@ -26,6 +26,7 @@ const torrentRoutes = require('./routes/torrent_routes');
 const driveRoutes = require('./routes/drive_routes');
 const rssRoutes = require('./routes/rss_routes');
 const telegramRoutes = require('./routes/telegram_routes');
+const stremioRoutes = require('./routes/stremio_routes');
 const { disableSeedingForCompletedTorrents } = require('./utils/torrent_utils');
 
 // ============================================================================
@@ -139,8 +140,10 @@ app.use('/api', torrentRoutes);
 app.use('/api/drive', driveRoutes);
 app.use('/api/rss', rssRoutes);
 app.use('/api/telegram', telegramRoutes);
+app.use('/stremio', stremioRoutes);
 
 console.log(`📡 [SERVER] API routes mounted at /api`);
+console.log(`🎬 [SERVER] Stremio addon routes mounted at /stremio`);
 
 // ============================================================================
 // SERVER STARTUP

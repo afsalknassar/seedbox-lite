@@ -9,6 +9,7 @@ import LoginScreen from './components/LoginScreen';
 import FilesPage from './components/FilesPage';
 import TorrentHome from './components/TorrentHome';
 import DetailPage from './components/DetailPage';
+import StremioPage from './components/StremioPage';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import './App.css';
 import { config } from './config/environment.js';
@@ -62,6 +63,7 @@ const AuthenticatedApp = () => {
           <Route path="files" element={<FilesPage />} />
           <Route path="torrent-home" element={<TorrentHome />} />
           <Route path="details" element={<DetailPage />} />
+          <Route path="stremio" element={<StremioPage />} />
         </Route>
       </Routes>
     </Router>

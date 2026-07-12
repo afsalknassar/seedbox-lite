@@ -1,0 +1,361 @@
+/**
+ * ============================================================================
+ * STREMIO ADDON ROUTES
+ * ============================================================================
+ *
+ * Implements the Stremio Addon Protocol v4 natively in Express.
+ * No stremio-addon-sdk needed — we just return the standard JSON contract.
+ *
+ * Stremio ID format: seedbox:{infoHash}:{fileIndex}
+ * This maps directly to:  /api/torrents/:infoHash/files/:fileIdx/stream
+ *
+ * Endpoints:
+ *   GET /stremio/:token/manifest.json   → Addon manifest
+ *   GET /stremio/:token/catalog/...     → Active torrents catalog
+ *   GET /stremio/:token/meta/...        → Torrent metadata
+ *   GET /stremio/:token/stream/...      → Streamable video file URLs
+ *
+ * @module stremio_routes
+ */
+
+const express = require('express');
+const router = express.Router();
+const crypto = require('crypto');
+const { client } = require('../torrent_client');
+const { universalTorrentResolver } = require('../utils/torrent_utils');
+
+// ============================================================================
+// CONSTANTS & HELPERS
+// ============================================================================
+
+const ADDON_ID       = 'personal.seedbox-lite.streams';
+const ADDON_VERSION  = '1.0.0';
+const ADDON_NAME     = 'My Seedbox';
+const ADDON_DESC     = 'Stream torrents directly from your personal Seedbox Lite instance.';
+
+// Video extensions we expose to Stremio
+const VIDEO_EXTENSIONS = new Set([
+  'mkv', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v',
+  'mpg', 'mpeg', 'm2ts', 'ts', 'vob', '3gp', 'ogv', 'rm', 'rmvb'
+]);
+
+/**
+ * Derive a simple token from ACCESS_PASSWORD using SHA-256.
+ * This makes the addon URL private without a full auth system.
+ */
+function getAddonToken() {
+  const password = process.env.ACCESS_PASSWORD || 'seedbox';
+  return crypto.createHash('sha256').update(password).digest('hex').slice(0, 16);
+}
+
+/**
+ * Build the absolute base URL for stream links.
+ * Prefers STREMIO_PUBLIC_URL env var, otherwise uses the request host.
+ */
+function getBaseUrl(req) {
+  if (process.env.STREMIO_PUBLIC_URL) {
+    return process.env.STREMIO_PUBLIC_URL.replace(/\/$/, '');
+  }
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+  const host     = req.headers['x-forwarded-host'] || req.get('host') || 'localhost:3000';
+  return `${protocol}://${host}`;
+}
+
+/**
+ * Validate the token in the request matches our derived token.
+ */
+function validateToken(req, res, next) {
+  const expected = getAddonToken();
+  const provided  = req.params.token;
+  if (provided !== expected) {
+    return res.status(403).json({ error: 'Forbidden — invalid addon token' });
+  }
+  next();
+}
+
+/**
+ * Check if a filename is a video file.
+ */
+function isVideoFile(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return VIDEO_EXTENSIONS.has(ext);
+}
+
+/**
+ * Format bytes into a human-readable size string.
+ */
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Convert a progress float (0–1) to a readable percentage string.
+ */
+function formatProgress(progress) {
+  return `${Math.round((progress || 0) * 100)}%`;
+}
+
+// ============================================================================
+// CORS HEADERS — Stremio requires permissive CORS on addon routes
+// ============================================================================
+
+router.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  next();
+});
+
+// ============================================================================
+// MANIFEST ENDPOINT
+// ============================================================================
+
+/**
+ * GET /stremio/:token/manifest.json
+ * Returns the addon manifest telling Stremio what resources this addon provides.
+ */
+router.get('/:token/manifest.json', validateToken, (req, res) => {
+  console.log(`🎬 [STREMIO] Manifest requested`);
+
+  const manifest = {
+    id:          ADDON_ID,
+    version:     ADDON_VERSION,
+    name:        ADDON_NAME,
+    description: ADDON_DESC,
+    logo:        'https://i.imgur.com/HJ9OPsV.png',
+
+    resources: ['catalog', 'meta', 'stream'],
+    types:     ['other'],
+
+    catalogs: [
+      {
+        type:  'other',
+        id:    'seedbox-active',
+        name:  '🌱 My Seedbox — Active Torrents',
+        extra: [{ name: 'skip', isRequired: false }]
+      }
+    ],
+
+    idPrefixes: ['seedbox:'],
+
+    behaviorHints: {
+      adult:              false,
+      p2p:                false,
+      configurable:       false,
+      configurationRequired: false
+    }
+  };
+
+  res.json(manifest);
+});
+
+// ============================================================================
+// CATALOG ENDPOINT
+// ============================================================================
+
+/**
+ * GET /stremio/:token/catalog/other/seedbox-active.json
+ * Returns all active torrents as Stremio meta items.
+ */
+router.get('/:token/catalog/other/seedbox-active.json', validateToken, async (req, res) => {
+  console.log(`📋 [STREMIO] Catalog requested`);
+
+  try {
+    const skip  = parseInt(req.query.skip || '0', 10);
+    const limit = 100;
+
+    const activeTorrents = client.torrents || [];
+
+    const metas = activeTorrents
+      .slice(skip, skip + limit)
+      .map(torrent => {
+        const videoFiles = (torrent.files || []).filter(f => isVideoFile(f.name));
+        const totalSize  = torrent.length || 0;
+        const progress   = torrent.progress || 0;
+
+        return {
+          id:          `seedbox:${torrent.infoHash}`,
+          type:        'other',
+          name:        torrent.name || torrent.infoHash,
+          poster:      null,
+          posterShape: 'landscape',
+          background:  null,
+          description: [
+            `📦 Size: ${formatBytes(totalSize)}`,
+            `⬇️ Progress: ${formatProgress(progress)}`,
+            `🎬 Video files: ${videoFiles.length}`,
+            `📡 Peers: ${torrent.numPeers || 0}`
+          ].join('\n'),
+          releaseInfo: new Date().getFullYear().toString(),
+          imdbRating:  (progress * 10).toFixed(1),
+        };
+      });
+
+    res.json({ metas });
+  } catch (err) {
+    console.error(`❌ [STREMIO] Catalog error:`, err.message);
+    res.json({ metas: [] });
+  }
+});
+
+// ============================================================================
+// META ENDPOINT
+// ============================================================================
+
+/**
+ * GET /stremio/:token/meta/other/:id.json
+ * Returns rich metadata for a specific torrent (identified by seedbox:{infoHash}).
+ */
+router.get('/:token/meta/other/:id.json', validateToken, async (req, res) => {
+  const stremioId = req.params.id;
+  console.log(`🎬 [STREMIO] Meta requested for: ${stremioId}`);
+
+  try {
+    if (!stremioId.startsWith('seedbox:')) {
+      return res.json({ meta: {} });
+    }
+
+    const infoHash = stremioId.replace('seedbox:', '');
+    const torrent  = await universalTorrentResolver(infoHash);
+
+    if (!torrent) {
+      return res.json({ meta: {} });
+    }
+
+    const videoFiles = (torrent.files || []).filter(f => isVideoFile(f.name));
+    const totalSize  = torrent.length || 0;
+    const progress   = torrent.progress || 0;
+
+    const videos = videoFiles.map((file, idx) => {
+      const fileIdx = torrent.files.indexOf(file);
+      return {
+        id:        `seedbox:${torrent.infoHash}:${fileIdx}`,
+        title:     file.name,
+        released:  new Date().toISOString(),
+        overview:  `${formatBytes(file.length)} • ${formatProgress(file.progress || 0)} downloaded`,
+        thumbnail: null,
+        streams:   []
+      };
+    });
+
+    const meta = {
+      id:          stremioId,
+      type:        'other',
+      name:        torrent.name || infoHash,
+      description: [
+        `📦 Total Size: ${formatBytes(totalSize)}`,
+        `⬇️ Progress: ${formatProgress(progress)}`,
+        `🎬 Video files: ${videoFiles.length}`,
+        `📡 Active Peers: ${torrent.numPeers || 0}`,
+        `🔑 InfoHash: ${torrent.infoHash}`
+      ].join('\n'),
+      releaseInfo: new Date().getFullYear().toString(),
+      videos:      videos,
+      trailers:    [],
+      links:       [],
+      behaviorHints: {
+        defaultVideoId: videos.length === 1 ? videos[0].id : null,
+        hasScheduledVideos: false
+      }
+    };
+
+    res.json({ meta });
+  } catch (err) {
+    console.error(`❌ [STREMIO] Meta error:`, err.message);
+    res.json({ meta: {} });
+  }
+});
+
+// ============================================================================
+// STREAM ENDPOINT
+// ============================================================================
+
+/**
+ * GET /stremio/:token/stream/other/:id.json
+ * Returns HTTP stream URLs for a specific file or all video files in a torrent.
+ */
+router.get('/:token/stream/other/:id.json', validateToken, async (req, res) => {
+  const stremioId = req.params.id;
+  const baseUrl   = getBaseUrl(req);
+
+  console.log(`🎬 [STREMIO] Stream requested for: ${stremioId}`);
+
+  try {
+    if (!stremioId.startsWith('seedbox:')) {
+      return res.json({ streams: [] });
+    }
+
+    const parts    = stremioId.replace('seedbox:', '').split(':');
+    const infoHash = parts[0];
+    const fileIdx  = parts[1] !== undefined ? parseInt(parts[1], 10) : null;
+
+    const torrent = await universalTorrentResolver(infoHash);
+
+    if (!torrent) {
+      return res.json({ streams: [] });
+    }
+
+    const buildStreamUrl = (idx) =>
+      `${baseUrl}/api/torrents/${infoHash}/files/${idx}/stream`;
+
+    let streams = [];
+
+    if (fileIdx !== null) {
+      const file = torrent.files?.[fileIdx];
+      if (file && isVideoFile(file.name)) {
+        streams = [{
+          url:   buildStreamUrl(fileIdx),
+          name:  ADDON_NAME,
+          title: `▶ ${file.name}\n${formatBytes(file.length)} • ${formatProgress(file.progress || 0)}`,
+          behaviorHints: { notWebReady: false }
+        }];
+      }
+    } else {
+      const videoFiles = (torrent.files || [])
+        .map((file, idx) => ({ file, idx }))
+        .filter(({ file }) => isVideoFile(file.name));
+
+      streams = videoFiles.map(({ file, idx }) => ({
+        url:   buildStreamUrl(idx),
+        name:  ADDON_NAME,
+        title: `▶ ${file.name}\n${formatBytes(file.length)} • ${formatProgress(file.progress || 0)}`,
+        behaviorHints: { notWebReady: false }
+      }));
+    }
+
+    console.log(`✅ [STREMIO] Returning ${streams.length} stream(s) for: ${torrent.name}`);
+    res.json({ streams });
+
+  } catch (err) {
+    console.error(`❌ [STREMIO] Stream error:`, err.message);
+    res.json({ streams: [] });
+  }
+});
+
+// ============================================================================
+// TOKEN INFO ENDPOINT (for the seedbox UI)
+// ============================================================================
+
+/**
+ * GET /stremio/info
+ * Internal endpoint — returns token and install URLs for the seedbox frontend.
+ */
+router.get('/info', (req, res) => {
+  const token   = getAddonToken();
+  const baseUrl = getBaseUrl(req);
+  const manifestUrl = `${baseUrl}/stremio/${token}/manifest.json`;
+  const installUrl  = manifestUrl.replace(/^https?:\/\//, 'stremio://');
+
+  res.json({
+    token,
+    manifestUrl,
+    installUrl,
+    addonName: ADDON_NAME,
+    addonId: ADDON_ID
+  });
+});
+
+module.exports = router;

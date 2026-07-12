@@ -148,7 +148,7 @@ router.get('/:token/manifest.json', validateToken, (req, res) => {
     version:     ADDON_VERSION,
     name:        ADDON_NAME,
     description: ADDON_DESC,
-    logo:        'https://i.imgur.com/HJ9OPsV.png',
+    logo:        'https://cdn.jsdelivr.net/gh/alohe/avatars/png/vibrent_1.png',
 
     resources: [
       'catalog',
@@ -169,7 +169,7 @@ router.get('/:token/manifest.json', validateToken, (req, res) => {
       {
         type:  'other',
         id:    'seedbox-active',
-        name:  '🌱 My Seedbox — Active Torrents',
+        name:  'My Seedbox',
         extra: [{ name: 'skip', isRequired: false }]
       }
     ],

@@ -151,7 +151,7 @@ router.get('/:token/manifest.json', validateToken, (req, res) => {
     logo:        'https://i.imgur.com/HJ9OPsV.png',
 
     resources: ['catalog', 'meta', 'stream'],
-    types:     ['other'],
+    types:     ['movie', 'series', 'other'],
 
     catalogs: [
       {
@@ -162,7 +162,7 @@ router.get('/:token/manifest.json', validateToken, (req, res) => {
       }
     ],
 
-    idPrefixes: ['seedbox:'],
+    idPrefixes: ['tt', 'seedbox:'],
 
     behaviorHints: {
       adult:              false,
@@ -200,9 +200,11 @@ router.get('/:token/catalog/other/seedbox-active.json', validateToken, async (re
       
       const imdbData = await fetchIMDBData(torrent.name).catch(() => null);
 
+      const imdbId = imdbData && imdbData.imdbID ? imdbData.imdbID : null;
+
       return {
-        id:          `seedbox:${torrent.infoHash}`,
-        type:        'other',
+        id:          imdbId ? imdbId : `seedbox:${torrent.infoHash}`,
+        type:        (imdbData && imdbData.Type === 'series') ? 'series' : (imdbId ? 'movie' : 'other'),
         name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || torrent.infoHash),
         poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,
         posterShape: (imdbData && imdbData.Poster) ? 'regular' : 'landscape',
@@ -311,30 +313,46 @@ router.get('/:token/meta/other/:id.json', validateToken, async (req, res) => {
 // ============================================================================
 
 /**
- * GET /stremio/:token/stream/other/:id.json
+ * GET /stremio/:token/stream/:type/:id.json
  * Returns HTTP stream URLs for a specific file or all video files in a torrent.
  */
-router.get('/:token/stream/other/:id.json', validateToken, async (req, res) => {
-  const stremioId = req.params.id;
-  const baseUrl   = getBaseUrl(req);
+router.get('/:token/stream/:type/:id.json', validateToken, async (req, res) => {
+  const { type, id: stremioId } = req.params;
+  const baseUrl = getBaseUrl(req);
 
-  console.log(`🎬 [STREMIO] Stream requested for: ${stremioId}`);
+  console.log(`🎬 [STREMIO] Stream requested for: ${stremioId} (type: ${type})`);
 
   try {
-    if (!stremioId.startsWith('seedbox:')) {
-      return res.json({ streams: [] });
+    let torrent = null;
+    let fileIdx = null;
+
+    if (stremioId.startsWith('seedbox:')) {
+      const parts    = stremioId.replace('seedbox:', '').split(':');
+      const infoHash = parts[0];
+      fileIdx  = parts[1] !== undefined ? parseInt(parts[1], 10) : null;
+      torrent = await universalTorrentResolver(infoHash);
+    } 
+    else if (stremioId.startsWith('tt')) {
+      // IMDB ID (e.g. tt1234567 or tt1234567:1:1 for series)
+      const parts = stremioId.split(':');
+      const imdbId = parts[0];
+      
+      const activeTorrents = client.torrents || [];
+      for (const t of activeTorrents) {
+        // fetchIMDBData leverages internal memory caching, so this is fast
+        const imdbData = await fetchIMDBData(t.name).catch(() => null);
+        if (imdbData && imdbData.imdbID === imdbId) {
+          torrent = t;
+          break;
+        }
+      }
     }
-
-    const parts    = stremioId.replace('seedbox:', '').split(':');
-    const infoHash = parts[0];
-    const fileIdx  = parts[1] !== undefined ? parseInt(parts[1], 10) : null;
-
-    const torrent = await universalTorrentResolver(infoHash);
 
     if (!torrent) {
       return res.json({ streams: [] });
     }
 
+    const infoHash = torrent.infoHash;
     const buildStreamUrl = (idx) =>
       `${baseUrl}/api/torrents/${infoHash}/files/${idx}/stream`;
 

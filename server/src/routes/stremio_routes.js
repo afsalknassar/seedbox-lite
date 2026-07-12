@@ -202,7 +202,7 @@ router.get('/:token/catalog/other/seedbox-active.json', validateToken, async (re
 
       return {
         id:          `seedbox:${torrent.infoHash}`,
-        type:        (imdbData && imdbData.Type === 'series') ? 'series' : 'movie',
+        type:        'other',
         name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || torrent.infoHash),
         poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,
         posterShape: (imdbData && imdbData.Poster) ? 'regular' : 'landscape',
@@ -271,7 +271,7 @@ router.get('/:token/meta/other/:id.json', validateToken, async (req, res) => {
 
     const meta = {
       id:          stremioId,
-      type:        (imdbData && imdbData.Type === 'series') ? 'series' : 'movie',
+      type:        'other',
       name:        (imdbData && imdbData.Title) ? imdbData.Title : (torrent.name || infoHash),
       poster:      (imdbData && imdbData.Poster) ? imdbData.Poster : null,
       posterShape: (imdbData && imdbData.Poster) ? 'regular' : 'landscape',
